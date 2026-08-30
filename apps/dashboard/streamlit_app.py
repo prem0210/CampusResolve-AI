@@ -670,6 +670,215 @@ def show_staff_dashboard(api_ready: bool) -> None:
             except requests.RequestException as error:
                 st.error(f"Update failed: {error}")
 
+def show_complaint_tracker(api_ready: bool) -> None:
+    st.markdown(
+        '<div class="section-kicker">Complaint tracking</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="section-title">Check your complaint status</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="section-subtitle">'
+        "Enter the reference ID received after submission. You can view the "
+        "latest status, assigned department, prediction summary, and staff update."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not api_ready:
+        st.error(
+            "The backend is unavailable. Start the FastAPI service and try again."
+        )
+        return
+
+    with st.form("complaint_tracker_form"):
+        tracker_col1, tracker_col2 = st.columns([4, 1], vertical_alignment="bottom")
+
+        with tracker_col1:
+            complaint_reference = st.text_input(
+                "Complaint reference",
+                key="track_reference",
+                placeholder="Example: CR-20260830-0001",
+                max_chars=100,
+                help="Use the reference shown after you submitted your complaint.",
+            )
+
+        with tracker_col2:
+            lookup_submitted = st.form_submit_button(
+                "Track complaint",
+                type="primary",
+                use_container_width=True,
+            )
+
+    if lookup_submitted:
+        reference = complaint_reference.strip().upper()
+
+        if not reference:
+            st.error("Enter a complaint reference to continue.")
+            return
+
+        try:
+            with st.spinner("Fetching your complaint status..."):
+                complaint = api_get(f"/complaints/{reference}")
+
+            st.session_state["tracked_complaint"] = complaint
+
+        except requests.HTTPError as error:
+            if error.response is not None and error.response.status_code == 404:
+                st.warning(
+                    "No complaint was found for that reference. Check the ID and try again."
+                )
+            else:
+                st.error("We could not retrieve this complaint. Please try again.")
+                with st.expander("Technical details"):
+                    st.code(str(error))
+
+            st.session_state["tracked_complaint"] = None
+
+        except requests.RequestException as error:
+            st.error(
+                "The complaint service could not be reached. Please try again shortly."
+            )
+            with st.expander("Technical details"):
+                st.code(str(error))
+
+            st.session_state["tracked_complaint"] = None
+
+    complaint = st.session_state.get("tracked_complaint")
+
+    if not complaint:
+        st.info(
+            "After you submit a complaint, use its reference ID here to check "
+            "the latest progress."
+        )
+        return
+
+    st.divider()
+
+    reference = complaint["complaint_reference"]
+    status = complaint["status"]
+    priority = complaint["predicted_priority"]
+    is_duplicate = complaint["possible_duplicate"]
+
+    status_colours = {
+        "Open": "#38bdf8",
+        "In Progress": "#f59e0b",
+        "Resolved": "#22c55e",
+        "Closed": "#94a3b8",
+    }
+    status_colour = status_colours.get(status, "#94a3b8")
+
+    st.markdown(
+        f"""
+        <div class="queue-card">
+            <div class="queue-reference">{reference}</div>
+            <div class="queue-meta">
+                Current status:
+                <span style="color:{status_colour}; font-weight:800;">{status}</span>
+                &nbsp;·&nbsp; Last updated: {complaint.get("updated_at", "Not available")}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+    metric_col1.metric(
+        "Status",
+        status,
+    )
+    metric_col2.metric(
+        "Priority recommendation",
+        f"{priority_emoji(priority)} {priority}",
+        f"{complaint['priority_confidence']:.1%} confidence",
+    )
+    metric_col3.metric(
+        "Resolution estimate",
+        f"{complaint['estimated_resolution_hours']:.1f} hrs",
+        f"±{complaint['prediction_interval_plus_minus_hours']:.1f} hrs",
+    )
+    metric_col4.metric(
+        "Duplicate check",
+        "Review needed" if is_duplicate else "No match flagged",
+        "Possible similar complaint" if is_duplicate else "No high-confidence match",
+    )
+
+    details_col1, details_col2 = st.columns(2, gap="large")
+
+    with details_col1:
+        st.markdown("#### Routing recommendation")
+        st.write(f"**Category:** {complaint['predicted_category']}")
+        st.write(f"**Assigned department:** {complaint['assigned_department']}")
+        st.write(f"**Location:** {complaint['specific_location']}")
+        st.write(f"**Language:** {complaint['language']}")
+
+    with details_col2:
+        st.markdown("#### Complaint details")
+        st.write(f"**People affected:** {complaint['affected_population']}")
+        st.write(
+            f"**Safety concern:** "
+            f"{'Yes' if complaint['safety_flag'] else 'No'}"
+        )
+        st.write(f"**Earlier reports:** {complaint['repeat_count']}")
+        st.write(f"**Submitted:** {complaint['created_at']}")
+
+    st.markdown("#### Your complaint")
+    st.info(complaint["complaint_text"])
+
+    if complaint.get("staff_notes"):
+        st.markdown("#### Latest staff update")
+        st.success(complaint["staff_notes"])
+    else:
+        st.caption("No staff update has been added yet.")
+
+    with st.expander("Why did the system make this recommendation?"):
+        st.write(complaint["explanation"])
+
+    if is_duplicate and complaint.get("top_duplicate_id"):
+        st.warning(
+            f"A similar historic complaint was identified "
+            f"({complaint['top_duplicate_id']}). Staff will review whether "
+            "the reports are related."
+        )
+
+    st.caption(
+        "CampusResolve-AI provides decision-support recommendations. "
+        "Campus staff make the final routing, priority, and resolution decisions."
+    )
+
+
+def show_about_page() -> None:
+    st.markdown(
+        '<div class="section-kicker">About the system</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="section-title">Transparent AI for campus support</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        """
+        CampusResolve-AI analyzes complaints written in English, Tamil, and
+        Tamil-English (Tanglish). It recommends a category and department,
+        identifies potentially similar historic complaints, forecasts a
+        priority level, and estimates likely resolution time.
+
+        ### Important guidance
+
+        - AI outputs are recommendations for staff review—not final decisions.
+        - Do not enter passwords, government IDs, phone numbers, or sensitive personal information.
+        - For fire, injury, severe electrical hazards, or urgent security threats, contact campus emergency support directly.
+        """
+    )
+
+    st.info(
+        "This is an academic ML/NLP research prototype using synthetic "
+        "complaint data."
+    )
 
 def main() -> None:
     st.set_page_config(
@@ -690,6 +899,9 @@ def main() -> None:
         "affected_population": 1,
         "safety_flag": False,
         "repeat_count": 0,
+        "active_page": "📝 Report an issue",
+        "track_reference": "",
+        "tracked_complaint": None,
     }
 
     for key, value in defaults.items():
@@ -750,15 +962,30 @@ def main() -> None:
         st.divider()
         st.caption("Research prototype · Staff review is required.")
 
-    student_tab, staff_tab = st.tabs(
-        ["📝 Student Complaint Portal", "📊 Staff Operations Dashboard"]
+        page = st.radio(
+        "Navigate",
+        options=[
+            "📝 Report an issue",
+            "🔎 Track complaint",
+            "📊 Staff workspace",
+            "ℹ️ About CampusResolve-AI",
+        ],
+        key="active_page",
+        horizontal=True,
+        label_visibility="collapsed",
     )
 
-    with student_tab:
+    if page == "📝 Report an issue":
         show_student_portal(api_ready)
 
-    with staff_tab:
+    elif page == "🔎 Track complaint":
+        show_complaint_tracker(api_ready)
+
+    elif page == "📊 Staff workspace":
         show_staff_dashboard(api_ready)
+
+    else:
+        show_about_page()
 
     st.markdown(
         """
