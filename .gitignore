@@ -29,9 +29,7 @@ huggingface/
 
 # ML artifacts and indexes
 artifacts/**/*.pkl
-artifacts/**/*.joblib
 artifacts/**/*.bin
-artifacts/**/*.index
 artifacts/**/*.npy
 artifacts/**/*.npz
 
