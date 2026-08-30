@@ -1,0 +1,11 @@
+complaint_text,actual_category,predicted_category,confidence
+ID card request delay aagudhu at Academic Office. Kindly action edunga.,Administration and Documents,Administration and Documents,0.9592
+Central Library Reading Hall area la internet romba slow ah iruku.,Wi-Fi and IT Services,Wi-Fi and IT Services,0.9785
+Please check the ERP login is failing at Central Library Reading Hall.,Wi-Fi and IT Services,Wi-Fi and IT Services,0.9878
+current supply illa at Computer Laboratory. Kindly action edunga.,Electrical and Power,Electrical and Power,0.9319
+"Student Service Centre la scholarship status update aagala, immediate ah solve pannunga.",Administration and Documents,Administration and Documents,0.958
+Scholarship Office இல் கட்டண செலுத்துதல் தளத்தில் புதுப்பிக்கப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,Administration and Documents,Administration and Documents,0.9742
+I want to report that the mattress is damaged in Boys Hostel Block B.,Hostel and Accommodation,Hostel and Accommodation,0.949
+மின்விசிறி வேலை செய்யவில்லை பிரச்சனை Computer Laboratory இடத்தில் உள்ளது.,Electrical and Power,Electrical and Power,0.7809
+Girls Hostel Block B பகுதியில் மெத்தை சேதமடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,Hostel and Accommodation,Hostel and Accommodation,0.919
+I want to report that the classroom has poor ventilation in C-305.,Classroom and Laboratory,Classroom and Laboratory,0.9569

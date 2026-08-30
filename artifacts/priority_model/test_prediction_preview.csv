@@ -1,0 +1,16 @@
+complaint_id,complaint_text,category,affected_population,safety_flag,repeat_count,actual_priority,predicted_priority,confidence
+CMP-02888,ID card request delay aagudhu at Academic Office. Kindly action edunga.,Administration and Documents,13,0,0,Low,Low,0.5622
+CMP-01107,Central Library Reading Hall area la internet romba slow ah iruku.,Wi-Fi and IT Services,138,0,1,Medium,Medium,0.3942
+CMP-03802,Please check the ERP login is failing at Central Library Reading Hall.,Wi-Fi and IT Services,83,0,2,Medium,Medium,0.3815
+CMP-00195,current supply illa at Computer Laboratory. Kindly action edunga.,Electrical and Power,242,0,0,Medium,Medium,0.411
+CMP-00686,"Student Service Centre la scholarship status update aagala, immediate ah solve pannunga.",Administration and Documents,22,0,2,Low,Low,0.5828
+CMP-00355,Scholarship Office இல் கட்டண செலுத்துதல் தளத்தில் புதுப்பிக்கப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,Administration and Documents,10,0,1,Medium,Low,0.5615
+CMP-01567,I want to report that the mattress is damaged in Boys Hostel Block B.,Hostel and Accommodation,64,0,2,Low,Low,0.3427
+CMP-03354,மின்விசிறி வேலை செய்யவில்லை பிரச்சனை Computer Laboratory இடத்தில் உள்ளது.,Electrical and Power,66,0,1,Medium,Medium,0.4159
+CMP-00930,Girls Hostel Block B பகுதியில் மெத்தை சேதமடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,Hostel and Accommodation,99,0,1,High,Low,0.3609
+CMP-00437,I want to report that the classroom has poor ventilation in C-305.,Classroom and Laboratory,78,0,2,High,High,0.3211
+CMP-01737,Urgent attention is needed because the electrical switch is damaged in Engineering Block.,Electrical and Power,21,0,1,Medium,Medium,0.4962
+CMP-01607,Please check the scholarship application status is not updated at Scholarship Office.,Administration and Documents,2,0,0,High,Low,0.5341
+CMP-01777,Hostel Block B பகுதியில் ஈஆர்பி உள்நுழைவு தோல்வியடைந்தது. தயவுசெய்து சரிசெய்யவும்.,Wi-Fi and IT Services,179,0,0,Low,Medium,0.3189
+CMP-01587,There is a problem because the ID card request is delayed at Accounts Office.,Administration and Documents,22,0,2,Low,Low,0.5575
+CMP-03591,Boys Hostel Block B பகுதியில் மெத்தை சேதமடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,Hostel and Accommodation,205,0,3,Low,Low,0.3849

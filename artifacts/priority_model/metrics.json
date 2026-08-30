@@ -1,0 +1,40 @@
+{
+  "target_column": "priority",
+  "feature_columns": [
+    "affected_population",
+    "safety_flag",
+    "repeat_count",
+    "category",
+    "location_type",
+    "language"
+  ],
+  "numeric_features": [
+    "affected_population",
+    "safety_flag",
+    "repeat_count"
+  ],
+  "categorical_features": [
+    "category",
+    "location_type",
+    "language"
+  ],
+  "train_records": 2720,
+  "validation_records": 389,
+  "test_records": 791,
+  "validation_metrics": {
+    "accuracy": 0.3368,
+    "macro_f1": 0.3285,
+    "weighted_f1": 0.3436
+  },
+  "test_metrics": {
+    "accuracy": 0.3527,
+    "macro_f1": 0.3469,
+    "weighted_f1": 0.3489
+  },
+  "priority_labels": [
+    "Critical",
+    "High",
+    "Low",
+    "Medium"
+  ]
+}

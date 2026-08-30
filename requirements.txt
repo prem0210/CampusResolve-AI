@@ -1,0 +1,16 @@
+fastapi[standard]
+streamlit
+pandas
+numpy
+scikit-learn
+sentence-transformers
+faiss-cpu
+shap
+sqlalchemy
+pydantic-settings
+python-dotenv
+joblib
+langdetect
+plotly
+httpx
+requests

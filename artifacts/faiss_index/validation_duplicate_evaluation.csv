@@ -1,0 +1,390 @@
+complaint_id,complaint_text,actual_is_duplicate,actual_duplicate_of_id,predicted_match_id,similarity_score,top1_exact_match
+CMP-02238,"Main Canteen la food quality poor ah iruku, immediate ah solve pannunga.",0,,CMP-03022,1.0,0
+CMP-02733,Computer Laboratory பகுதியில் மின்சார சுவிட்ச் சேதமடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03061,1.0,0
+CMP-02929,There is a problem because the projector is not displaying at Electronics Laboratory.,0,,CMP-03312,1.0,0
+CMP-03080,Urgent attention is needed because the drinking water dispenser is not working in Main Canteen.,1,CMP-02238,CMP-00549,1.0,0
+CMP-01068,water supply varala at Girls Hostel Washroom. Kindly action edunga.,0,,CMP-00397,0.9173,0
+CMP-01515,கழிவறை குழாய் உடைந்துள்ளது பிரச்சனை Hostel Block C இடத்தில் உள்ளது.,0,,CMP-00740,0.99,0
+CMP-03689,classroom ventilation poor ah iruku at Electronics Laboratory. Kindly action edunga.,1,CMP-02929,CMP-03623,1.0,0
+CMP-02224,Student Service Centre la marksheet correction pending la iruku. Please check pannunga.,0,,CMP-01119,0.9346,0
+CMP-00716,Hostel Block A la switch damage aagiruku. Please check pannunga.,0,,CMP-02983,1.0,0
+CMP-03649,There is a problem because the washroom tap is broken at Girls Hostel Washroom.,1,CMP-01068,CMP-01141,1.0,0
+CMP-03574,"Hostel Block C la toilet block aagiruku, immediate ah solve pannunga.",1,CMP-01515,CMP-02389,0.8441,0
+CMP-02076,வாகனம் வளாக நுழைவாயிலை மறைத்துள்ளது பிரச்சனை Route 1 Bus Stop இடத்தில் உள்ளது.,0,,CMP-02933,0.9684,0
+CMP-01292,Urgent attention is needed because the washroom tap is broken in Hostel Block A.,0,,CMP-01997,1.0,0
+CMP-03436,Hostel Block A area la washroom tap broken ah iruku.,1,CMP-01292,CMP-00180,1.0,0
+CMP-02765,Urgent attention is needed because the classroom bench is broken in AI Laboratory.,0,,CMP-02309,1.0,0
+CMP-03878,Urgent attention is needed because the bus is overcrowded in Route 1 Bus Stop.,1,CMP-02076,CMP-02761,1.0,0
+CMP-03091,Student Service Centre பகுதியில் பொனஃபைடு சான்றிதழ் கோரிக்கை நிலுவையில் உள்ளது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-02224,CMP-00460,1.0,0
+CMP-02781,Academic Block Corridor area la washroom clean pannala.,0,,CMP-03046,1.0,0
+CMP-01650,மாணவர் தளம் திறக்கவில்லை பிரச்சனை Hostel Block B இடத்தில் உள்ளது.,0,,CMP-03847,1.0,0
+CMP-01469,vehicle campus entrance block pannudhu at College Entrance. Kindly action edunga.,0,,CMP-02508,1.0,0
+CMP-02538,food hygiene illa at North Canteen. Kindly action edunga.,0,,CMP-02743,1.0,0
+CMP-01649,There is a problem because the Wi-Fi is not working at Central Library Reading Hall.,0,,CMP-01828,1.0,0
+CMP-01195,Girls Hostel Block A பகுதியில் அறை சுத்தம் செய்யப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01972,1.0,0
+CMP-00626,Urgent attention is needed because the marksheet correction request is pending in Examination Cell.,0,,CMP-02480,1.0,0
+CMP-03721,Central Library Reading Hall இல் வைஃபை வேலை செய்யவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-01649,CMP-02999,1.0,0
+CMP-02035,There is a problem because an unauthorized person entered the hostel area at Hostel Block B.,0,,CMP-01885,0.9265,0
+CMP-01388,I want to report that the classroom has poor ventilation in C-101.,0,,CMP-01396,0.9749,0
+CMP-02318,Central Library Reading Hall இல் மாணவர் தளம் திறக்கவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01064,1.0,0
+CMP-00633,I want to report that the washroom tap is broken in Hostel Block A.,0,,CMP-02603,1.0,0
+CMP-03443,"C-101 la projector display varala, immediate ah solve pannunga.",1,CMP-01388,CMP-03834,1.0,0
+CMP-02065,Please check the student portal is not loading at Computer Laboratory.,0,,CMP-00049,0.8894,0
+CMP-00570,மாணவர் தளம் திறக்கவில்லை பிரச்சனை Hostel Block A இடத்தில் உள்ளது.,0,,CMP-02205,1.0,0
+CMP-00938,room clean pannala at Girls Hostel Block B. Kindly action edunga.,0,,CMP-00911,1.0,0
+CMP-02648,There is a problem because the classroom has poor ventilation at AI Laboratory.,0,,CMP-01327,1.0,0
+CMP-02100,water supply varala at Boys Hostel Washroom. Kindly action edunga.,0,,CMP-00268,0.8768,0
+CMP-03135,I want to report that the cupboard lock is not working in Girls Hostel Block B.,1,CMP-00938,CMP-01165,1.0,0
+CMP-02445,Girls Hostel Block B area la room clean pannala.,0,,CMP-02404,1.0,0
+CMP-00371,கழிவறை சுத்தம் செய்யப்படவில்லை பிரச்சனை Parking Area இடத்தில் உள்ளது.,0,,CMP-03349,1.0,0
+CMP-00336,Please check the food appears unhygienic at North Canteen.,0,,CMP-00442,1.0,0
+CMP-03425,I want to report that there is a bad smell near the waste area in Parking Area.,1,CMP-00371,CMP-02144,1.0,0
+CMP-02163,அறிவிப்பின்றி பேருந்து பாதை மாற்றப்பட்டது பிரச்சனை Route 2 Bus Stop இடத்தில் உள்ளது.,0,,CMP-03633,1.0,0
+CMP-03850,அறை கதவு பூட்டு உடைந்துள்ளது பிரச்சனை Girls Hostel Block B இடத்தில் உள்ளது.,1,CMP-02445,CMP-02157,1.0,0
+CMP-03866,ப்ரொஜெக்டர் காட்சி அளிக்கவில்லை பிரச்சனை AI Laboratory இடத்தில் உள்ளது.,1,CMP-02648,CMP-00807,1.0,0
+CMP-00866,"Engineering Block la washroom tap broken ah iruku, immediate ah solve pannunga.",0,,CMP-03554,1.0,0
+CMP-01194,Urgent attention is needed because the washroom has not been cleaned in Main Canteen.,0,,CMP-00577,0.8963,0
+CMP-03557,Urgent attention is needed because the water tank is overflowing in Engineering Block.,1,CMP-00866,CMP-00490,1.0,0
+CMP-03875,நடைபாதை அழுக்காக உள்ளது பிரச்சனை Main Canteen இடத்தில் உள்ளது.,1,CMP-01194,CMP-01919,1.0,0
+CMP-01527,Urgent attention is needed because the food appears unhygienic in Main Canteen.,0,,CMP-00155,1.0,0
+CMP-01658,There is a problem because the tube light is flickering at Engineering Block.,0,,CMP-02937,1.0,0
+CMP-00056,North Canteen பகுதியில் கேன்டீன் சேவை மிகவும் மெதுவாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03225,1.0,0
+CMP-02391,There is a problem because the ceiling fan is not working at Computer Laboratory.,0,,CMP-01428,0.8512,0
+CMP-01865,Engineering Block area la fan work aagala.,0,,CMP-03300,0.8783,0
+CMP-03394,Engineering Block பகுதியில் மின்விசிறி வேலை செய்யவில்லை. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01658,CMP-03507,0.8934,0
+CMP-00085,Urgent attention is needed because the ceiling fan is not working in Engineering Block.,0,,CMP-02424,1.0,0
+CMP-00674,Main Parking Area இல் வாகனம் வளாக நுழைவாயிலை மறைத்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-00286,0.9482,0
+CMP-03258,I want to report that there is a power outage in Engineering Block.,1,CMP-01865,CMP-03250,0.9184,0
+CMP-02012,Boys Hostel Washroom பகுதியில் குழாயில் தண்ணீர் கசிகிறது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03679,1.0,0
+CMP-01423,Main Gate இல் மின்பலகையின் அருகில் தண்ணீர் கசிகிறது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03331,1.0,0
+CMP-01909,I want to report that the room door lock is broken in Hostel Room 214.,0,,CMP-01715,1.0,0
+CMP-02263,There is a problem because the air conditioner is not working at Computer Laboratory.,0,,CMP-00201,1.0,0
+CMP-02941,Please check the laboratory computer cannot access the network at Central Library Reading Hall.,0,,CMP-00513,1.0,0
+CMP-01289,Please check the mattress is damaged at Girls Hostel Block B.,0,,CMP-00430,1.0,0
+CMP-02734,Please check the classroom bench is broken at Computer Laboratory.,0,,CMP-00055,0.9344,0
+CMP-02696,There is a problem because the toilet is blocked at Hostel Block B.,0,,CMP-02507,0.978,0
+CMP-00334,wifi work aagala at Central Library Reading Hall. Kindly action edunga.,0,,CMP-02601,0.9536,0
+CMP-03264,Please check the Wi-Fi is not working at Central Library Reading Hall.,1,CMP-00334,CMP-02008,0.9501,0
+CMP-00998,Please check the drinking water dispenser is not working at North Canteen.,0,,CMP-02260,1.0,0
+CMP-01774,There is a problem because there is a broken glass panel at Parking Area.,0,,CMP-03414,1.0,0
+CMP-00809,Urgent attention is needed because the bus route was changed without notice in Route 1 Bus Stop.,0,,CMP-00119,0.9637,0
+CMP-03531,North Canteen area la food quality poor ah iruku.,1,CMP-00998,CMP-01233,1.0,0
+CMP-00260,pipe la water leak aagudhu at Boys Hostel Washroom. Kindly action edunga.,0,,CMP-02364,0.9277,0
+CMP-02756,I want to report that there is a power outage in Computer Laboratory.,0,,CMP-01755,1.0,0
+CMP-00981,Please check the scholarship application status is not updated at Academic Office.,0,,CMP-01055,1.0,0
+CMP-01524,There is a problem because a vehicle is blocking the campus entrance at Route 2 Bus Stop.,0,,CMP-01072,1.0,0
+CMP-03817,Route 1 Bus Stop la parking space illa. Please check pannunga.,1,CMP-00809,CMP-01936,0.8963,0
+CMP-03320,Route 2 Bus Stop இல் வளாக பேருந்து தாமதமாக வந்தது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-01524,CMP-02497,1.0,0
+CMP-02835,Please check the water tank is overflowing at Boys Hostel Washroom.,0,,CMP-02578,0.9313,0
+CMP-03401,Boys Hostel Washroom area la water supply varala.,1,CMP-02835,CMP-02364,0.9302,0
+CMP-02957,Hostel Room 214 la window damage aagiruku. Please check pannunga.,0,,CMP-00887,0.9331,0
+CMP-00532,வாகனம் வளாக நுழைவாயிலை மறைத்துள்ளது பிரச்சனை Route 2 Bus Stop இடத்தில் உள்ளது.,0,,CMP-03633,0.9691,0
+CMP-03018,Urgent attention is needed because the campus bus arrived late in Route 2 Bus Stop.,1,CMP-00532,CMP-02256,1.0,0
+CMP-00608,Hostel Block A பகுதியில் இணைய இணைப்பு மிகவும் மெதுவாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03382,0.9787,0
+CMP-03681,அறை கதவு பூட்டு உடைந்துள்ளது பிரச்சனை Hostel Room 214 இடத்தில் உள்ளது.,1,CMP-02957,CMP-01420,1.0,0
+CMP-00794,There is a problem because the bonafide certificate request is pending at Accounts Office.,0,,CMP-02447,0.909,0
+CMP-02375,"Campus Road la unauthorized person hostel area la vandhirukanga, immediate ah solve pannunga.",0,,CMP-03409,0.9108,0
+CMP-00463,Please check there is no water supply at Main Canteen.,0,,CMP-01059,1.0,0
+CMP-02350,fan work aagala at C-204. Kindly action edunga.,0,,CMP-02105,1.0,0
+CMP-03486,C-204 இல் மின்சார சுவிட்ச் சேதமடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-02350,CMP-03888,0.8791,0
+CMP-02554,Engineering Block இல் மின்சார சுவிட்ச் சேதமடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-02342,1.0,0
+CMP-01974,Hostel Block A la toilet block aagiruku. Please check pannunga.,0,,CMP-03836,0.8962,0
+CMP-00123,Boys Hostel Block A இல் ஜன்னல் சேதமடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03125,0.9471,0
+CMP-00715,Main Gate area la staircase railing loose ah iruku.,0,,CMP-01398,1.0,0
+CMP-02794,Please check the food quality is poor at North Canteen.,0,,CMP-00307,1.0,0
+CMP-03700,உணவின் விலை தவறாக உள்ளது பிரச்சனை North Canteen இடத்தில் உள்ளது.,1,CMP-02794,CMP-03606,1.0,0
+CMP-00311,Scholarship Office area la marksheet correction pending la iruku.,0,,CMP-01518,1.0,0
+CMP-00630,There is a problem because the campus street light is not working at Hostel Block B.,0,,CMP-01590,1.0,0
+CMP-00062,Please check a vehicle is blocking the campus entrance at Main Parking Area.,0,,CMP-00281,1.0,0
+CMP-00072,Main Canteen la food price wrong ah iruku. Please check pannunga.,0,,CMP-01245,0.949,0
+CMP-02727,Main Parking Area area la bus route notice illama change pannitanga.,0,,CMP-01599,1.0,0
+CMP-02791,வைஃபை வேலை செய்யவில்லை பிரச்சனை Computer Laboratory இடத்தில் உள்ளது.,0,,CMP-01662,0.9649,0
+CMP-02150,Computer Laboratory பகுதியில் மின்விசிறி வேலை செய்யவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01887,1.0,0
+CMP-00774,Academic Block Corridor பகுதியில் கழிவறை சுத்தம் செய்யப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-00524,1.0,0
+CMP-03643,Urgent attention is needed because a vehicle is blocking the campus entrance in Main Parking Area.,1,CMP-02727,CMP-02936,1.0,0
+CMP-00229,There is a problem because there is a broken glass panel at Hostel Block B.,0,,CMP-01334,1.0,0
+CMP-03720,"Computer Laboratory la wifi work aagala, immediate ah solve pannunga.",1,CMP-02791,CMP-02653,0.9408,0
+CMP-02251,Main Canteen பகுதியில் கழிவறை சுத்தம் செய்யப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03528,1.0,0
+CMP-01342,Main Canteen இல் கேன்டீன் சேவை மிகவும் மெதுவாக உள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-02236,0.9197,0
+CMP-03155,Urgent attention is needed because garbage has accumulated in Main Canteen.,1,CMP-02251,CMP-00737,1.0,0
+CMP-00974,Please check the student portal is not loading at Central Library Reading Hall.,0,,CMP-02162,1.0,0
+CMP-03403,"Central Library Reading Hall la student portal load aagala, immediate ah solve pannunga.",1,CMP-00974,CMP-00592,1.0,0
+CMP-02326,Hostel Mess இல் உணவின் தரம் மோசமாக உள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-00425,1.0,0
+CMP-01089,C-305 area la tube light flicker aagudhu.,0,,CMP-03562,1.0,0
+CMP-01978,Please check the canteen service is very slow at North Canteen.,0,,CMP-00111,1.0,0
+CMP-02223,There is a problem because the tube light is flickering at Hostel Block A.,0,,CMP-00519,0.9293,0
+CMP-00277,Computer Laboratory இல் வைஃபை வேலை செய்யவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03795,1.0,0
+CMP-01512,Urgent attention is needed because the bus is overcrowded in Main Parking Area.,0,,CMP-02892,0.9017,0
+CMP-00826,Please check the internet connection is very slow at Hostel Block A.,0,,CMP-03611,0.9849,0
+CMP-03771,Main Parking Area பகுதியில் வளாக பேருந்து தாமதமாக வந்தது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01512,CMP-00166,1.0,0
+CMP-02747,Main Parking Area area la campus bus late ah vandhuchu.,0,,CMP-03463,0.9406,0
+CMP-00619,Hostel Mess இல் உணவின் விலை தவறாக உள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03212,0.9464,0
+CMP-01719,Please check the room door lock is broken at Girls Hostel Block B.,0,,CMP-00541,1.0,0
+CMP-01882,Please check there is a bad smell near the waste area at Main Canteen.,0,,CMP-00741,1.0,0
+CMP-03069,Please check the canteen service is very slow at Hostel Mess.,1,CMP-00619,CMP-00693,1.0,0
+CMP-01925,College Entrance area la campus bus late ah vandhuchu.,0,,CMP-03218,1.0,0
+CMP-02804,Please check the ERP login is failing at Central Library.,0,,CMP-01188,1.0,0
+CMP-03863,Please check the bus is overcrowded at College Entrance.,1,CMP-01925,CMP-01218,1.0,0
+CMP-03068,Central Library இல் ஈஆர்பி உள்நுழைவு தோல்வியடைந்தது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-02804,CMP-03770,1.0,0
+CMP-02523,"Route 3 Bus Stop la bus route notice illama change pannitanga, immediate ah solve pannunga.",0,,CMP-00149,1.0,0
+CMP-00563,Route 2 Bus Stop இல் வாகனம் வளாக நுழைவாயிலை மறைத்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-02132,0.9593,0
+CMP-01914,There is a problem because the laboratory equipment is not functioning at AI Laboratory.,0,,CMP-03126,0.9142,0
+CMP-02697,Please check the food appears unhygienic at North Canteen.,0,,CMP-00442,1.0,0
+CMP-01509,Please check the drinking water dispenser is not working at North Canteen.,0,,CMP-02260,1.0,0
+CMP-02349,Girls Hostel Washroom பகுதியில் கழிவறை அடைத்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01654,1.0,0
+CMP-01667,Please check there is a broken glass panel at Engineering Block.,0,,CMP-00256,1.0,0
+CMP-02106,C-204 area la AC work aagala.,0,,CMP-02169,1.0,0
+CMP-01446,There is a problem because the washroom has not been cleaned at Academic Block Corridor.,0,,CMP-02520,0.9225,0
+CMP-02134,There is a problem because the corridor light is not working at Hostel Block B.,0,,CMP-01827,0.9404,0
+CMP-03651,Engineering Block பகுதியில் படிக்கட்டு கைப்பிடி தளர்வாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01667,CMP-03392,1.0,0
+CMP-02633,Please check the bonafide certificate request is pending at Examination Cell.,0,,CMP-02401,0.8652,0
+CMP-01126,Accounts Office area la marksheet correction pending la iruku.,0,,CMP-02647,0.9102,0
+CMP-01246,கட்டண செலுத்துதல் தளத்தில் புதுப்பிக்கப்படவில்லை பிரச்சனை Scholarship Office இடத்தில் உள்ளது.,0,,CMP-02975,1.0,0
+CMP-03432,Urgent attention is needed because the marksheet correction request is pending in Scholarship Office.,1,CMP-01246,CMP-03786,0.9529,0
+CMP-01018,"C-204 la switch damage aagiruku, immediate ah solve pannunga.",0,,CMP-02627,1.0,0
+CMP-01111,Urgent attention is needed because the food quality is poor in North Canteen.,0,,CMP-02312,1.0,0
+CMP-02252,Please check the bus is overcrowded at Route 2 Bus Stop.,0,,CMP-02890,1.0,0
+CMP-02253,I want to report that the room door lock is broken in Hostel Room 214.,0,,CMP-01715,1.0,0
+CMP-00331,Hostel Block A la toilet block aagiruku. Please check pannunga.,0,,CMP-03836,0.8962,0
+CMP-01910,Please check the drinking water dispenser is not working at North Canteen.,0,,CMP-02260,1.0,0
+CMP-03738,North Canteen பகுதியில் கேன்டீன் சேவை மிகவும் மெதுவாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01910,CMP-03225,1.0,0
+CMP-02527,"Academic Block Corridor la dustbin overflow aagudhu, immediate ah solve pannunga.",0,,CMP-01389,0.9282,0
+CMP-02437,உணவின் விலை தவறாக உள்ளது பிரச்சனை Hostel Mess இடத்தில் உள்ளது.,0,,CMP-00059,1.0,0
+CMP-00143,Urgent attention is needed because the electrical switch is damaged in C-305.,0,,CMP-03110,0.8181,0
+CMP-01031,"Parking Area la waste area pakkathula bad smell iruku, immediate ah solve pannunga.",0,,CMP-02691,0.9389,0
+CMP-02624,Hostel Block A பகுதியில் ஈஆர்பி உள்நுழைவு தோல்வியடைந்தது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03578,1.0,0
+CMP-00923,C-305 la switch damage aagiruku. Please check pannunga.,0,,CMP-03692,1.0,0
+CMP-03656,C-305 area la fan work aagala.,1,CMP-00143,CMP-00825,0.951,0
+CMP-03625,C-305 இல் மின்சார சுவிட்ச் சேதமடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-00923,CMP-00942,0.8977,0
+CMP-00689,"Engineering Block la water tank overflow aagudhu, immediate ah solve pannunga.",0,,CMP-01986,0.9219,0
+CMP-01047,Urgent attention is needed because the fee payment is not updated in the portal in Student Service Centre.,0,,CMP-00586,1.0,0
+CMP-00313,I want to report that the room has a damaged window in Hostel Room 312.,0,,CMP-01409,1.0,0
+CMP-02118,C-204 area la switch damage aagiruku.,0,,CMP-00343,0.8879,0
+CMP-00275,water supply varala at Main Canteen. Kindly action edunga.,0,,CMP-03438,0.8738,0
+CMP-02769,classroom bench broken ah iruku at AI Laboratory. Kindly action edunga.,0,,CMP-03435,1.0,0
+CMP-03063,Urgent attention is needed because the laboratory equipment is not functioning in AI Laboratory.,1,CMP-02769,CMP-02170,0.9011,0
+CMP-00542,Please check the washroom has not been cleaned at Academic Block Corridor.,0,,CMP-01192,1.0,0
+CMP-01516,There is a problem because the room door lock is broken at Girls Hostel Block B.,0,,CMP-00505,1.0,0
+CMP-03761,"Girls Hostel Block B la room door lock broken ah iruku, immediate ah solve pannunga.",1,CMP-01516,CMP-03154,1.0,0
+CMP-01044,Urgent attention is needed because the internet connection is very slow in Hostel Block B.,0,,CMP-03808,1.0,0
+CMP-01421,bonafide certificate request pending la iruku at Scholarship Office. Kindly action edunga.,0,,CMP-02059,1.0,0
+CMP-00061,Main Parking Area இல் அறிவிப்பின்றி பேருந்து பாதை மாற்றப்பட்டது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-00073,0.9381,0
+CMP-02140,Main Canteen பகுதியில் உணவின் விலை தவறாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03755,1.0,0
+CMP-01754,I want to report that the bus is overcrowded in Route 3 Bus Stop.,0,,CMP-01456,0.9454,0
+CMP-00669,Girls Hostel Block A இல் அறை கதவு பூட்டு உடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03254,0.9935,0
+CMP-01406,C-204 பகுதியில் ப்ரொஜெக்டர் காட்சி அளிக்கவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03390,0.9167,0
+CMP-02016,AI Laboratory இல் ஈஆர்பி உள்நுழைவு தோல்வியடைந்தது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-02104,0.9175,0
+CMP-01998,"Campus Road la unauthorized person hostel area la vandhirukanga, immediate ah solve pannunga.",0,,CMP-03409,0.9108,0
+CMP-00449,water supply varala at Main Canteen. Kindly action edunga.,0,,CMP-03438,0.8738,0
+CMP-01176,There is a problem because the corridor light is not working at Computer Laboratory.,0,,CMP-00915,1.0,0
+CMP-03586,Route 3 Bus Stop இல் வளாக பேருந்து தாமதமாக வந்தது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-01754,CMP-00637,1.0,0
+CMP-00581,I want to report that the drinking water dispenser is not working in Hostel Mess.,0,,CMP-00895,1.0,0
+CMP-01004,AI Laboratory இல் குளிர்சாதன வசதி வேலை செய்யவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01768,0.9223,0
+CMP-00341,There is a problem because there is no parking space available at College Entrance.,0,,CMP-03753,0.9205,0
+CMP-00172,Route 2 Bus Stop la parking space illa. Please check pannunga.,0,,CMP-00005,0.9071,0
+CMP-01304,Computer Laboratory பகுதியில் குழல் விளக்கு மின்னுகிறது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03603,0.9101,0
+CMP-00506,Scholarship Office இல் உதவித்தொகை நிலை புதுப்பிக்கப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01775,1.0,0
+CMP-03673,There is a problem because the water tank is overflowing at Main Canteen.,1,CMP-00449,CMP-00453,0.9409,0
+CMP-03158,Urgent attention is needed because the classroom has poor ventilation in AI Laboratory.,1,CMP-01004,CMP-00381,0.9114,0
+CMP-03253,Hostel Mess la drinking water dispenser work aagala. Please check pannunga.,1,CMP-00581,CMP-03026,1.0,0
+CMP-02857,Academic Office பகுதியில் கட்டண செலுத்துதல் தளத்தில் புதுப்பிக்கப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-02093,0.9481,0
+CMP-02467,classroom ventilation poor ah iruku at C-204. Kindly action edunga.,0,,CMP-02302,0.9925,0
+CMP-00459,Hostel Block A இல் வைஃபை வேலை செய்யவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01837,1.0,0
+CMP-02641,Please check the classroom has poor ventilation at C-305.,0,,CMP-02715,0.9512,0
+CMP-01730,Computer Laboratory area la ERP login aagala.,0,,CMP-03840,0.9183,0
+CMP-03547,There is a problem because the ID card request is delayed at Academic Office.,1,CMP-02857,CMP-02689,0.9259,0
+CMP-00584,AI Laboratory பகுதியில் வைஃபை வேலை செய்யவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-02058,1.0,0
+CMP-00316,Please check the room has a damaged window at Boys Hostel Block B.,0,,CMP-03032,1.0,0
+CMP-00263,lab computer network connect aagala at Hostel Block A. Kindly action edunga.,0,,CMP-03835,0.995,0
+CMP-01834,AC work aagala at C-204. Kindly action edunga.,0,,CMP-03668,1.0,0
+CMP-01935,vehicle campus entrance block pannudhu at Route 3 Bus Stop. Kindly action edunga.,0,,CMP-03482,0.943,0
+CMP-01341,Engineering Block இல் மின்பலகையின் அருகில் தண்ணீர் கசிகிறது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-02230,0.9654,0
+CMP-03555,There is a problem because the laboratory equipment is not functioning at C-204.,1,CMP-01834,CMP-00982,1.0,0
+CMP-03324,There is a problem because the bus is overcrowded at Route 3 Bus Stop.,1,CMP-01935,CMP-00006,1.0,0
+CMP-01206,Please check the classroom bench is broken at C-305.,0,,CMP-01565,1.0,0
+CMP-02153,I want to report that the tube light is flickering in C-204.,0,,CMP-03891,1.0,0
+CMP-03885,C-305 பகுதியில் வகுப்பறை மேசை உடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01206,CMP-02181,1.0,0
+CMP-00683,Urgent attention is needed because an unauthorized person entered the hostel area in Engineering Block.,0,,CMP-01311,1.0,0
+CMP-01116,mattress damage aagiruku at Hostel Room 312. Kindly action edunga.,0,,CMP-03458,0.9343,0
+CMP-01351,Urgent attention is needed because there is a bad smell near the waste area in Parking Area.,0,,CMP-00040,1.0,0
+CMP-01285,Central Library Reading Hall la student portal load aagala. Please check pannunga.,0,,CMP-00272,1.0,0
+CMP-03843,C-204 area la corridor light eriyala.,1,CMP-02153,CMP-02403,1.0,0
+CMP-01189,"Academic Office la marksheet correction pending la iruku, immediate ah solve pannunga.",0,,CMP-03712,1.0,0
+CMP-02692,"Main Canteen la water tank overflow aagudhu, immediate ah solve pannunga.",0,,CMP-00995,1.0,0
+CMP-02190,Main Canteen area la pipe la water leak aagudhu.,0,,CMP-02845,1.0,0
+CMP-01697,Please check the projector is not displaying at C-101.,0,,CMP-02068,0.9385,0
+CMP-03769,C-101 பகுதியில் ப்ரொஜெக்டர் காட்சி அளிக்கவில்லை. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01697,CMP-03377,1.0,0
+CMP-03153,Academic Office பகுதியில் பொனஃபைடு சான்றிதழ் கோரிக்கை நிலுவையில் உள்ளது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01189,CMP-01016,1.0,0
+CMP-01276,Urgent attention is needed because the washroom has not been cleaned in Library Washroom.,0,,CMP-00577,1.0,0
+CMP-01665,There is a problem because the mattress is damaged at Girls Hostel Block A.,0,,CMP-02798,0.99,0
+CMP-01222,மின்பலகையின் அருகில் தண்ணீர் கசிகிறது பிரச்சனை Library Entrance இடத்தில் உள்ளது.,0,,CMP-02451,1.0,0
+CMP-03316,Girls Hostel Block A பகுதியில் அறை சுத்தம் செய்யப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01665,CMP-01972,1.0,0
+CMP-01911,lab equipment work aagala at Computer Laboratory. Kindly action edunga.,0,,CMP-03257,1.0,0
+CMP-02811,There is a problem because there is no water supply at Hostel Block C.,0,,CMP-00662,1.0,0
+CMP-01762,"Library Washroom la waste area pakkathula bad smell iruku, immediate ah solve pannunga.",0,,CMP-02270,1.0,0
+CMP-03763,There is a problem because the washroom has not been cleaned at Library Washroom.,1,CMP-01762,CMP-01969,1.0,0
+CMP-02680,Urgent attention is needed because the Wi-Fi is not working in Central Library Reading Hall.,0,,CMP-00785,1.0,0
+CMP-01709,I want to report that the electrical switch is damaged in C-305.,0,,CMP-03110,1.0,0
+CMP-03665,C-305 பகுதியில் மின்விசிறி வேலை செய்யவில்லை. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01709,CMP-02049,1.0,0
+CMP-00198,Library Washroom area la dustbin overflow aagudhu.,0,,CMP-03602,1.0,0
+CMP-01335,There is a problem because the corridor light is not working at Hostel Block B.,0,,CMP-01827,0.9404,0
+CMP-02626,corridor light eriyala at C-204. Kindly action edunga.,0,,CMP-02865,1.0,0
+CMP-00836,"Accounts Office la marksheet correction pending la iruku, immediate ah solve pannunga.",0,,CMP-03712,0.9173,0
+CMP-00572,Main Canteen area la food price wrong ah iruku.,0,,CMP-00447,1.0,0
+CMP-00704,"North Canteen la canteen service romba slow ah iruku, immediate ah solve pannunga.",0,,CMP-03618,0.9618,0
+CMP-01813,Please check the hostel room is not cleaned at Hostel Room 214.,0,,CMP-03246,1.0,0
+CMP-03372,current supply illa at Hostel Block B. Kindly action edunga.,1,CMP-01335,CMP-00604,0.8023,0
+CMP-02694,Please check the ceiling fan is not working at Hostel Block A.,0,,CMP-00014,0.937,0
+CMP-01765,"Main Canteen la canteen service romba slow ah iruku, immediate ah solve pannunga.",0,,CMP-03618,1.0,0
+CMP-02193,குளிர்சாதன வசதி வேலை செய்யவில்லை பிரச்சனை C-101 இடத்தில் உள்ளது.,0,,CMP-02655,1.0,0
+CMP-03229,C-101 la projector display varala. Please check pannunga.,1,CMP-02193,CMP-01573,1.0,0
+CMP-00821,There is a problem because there is a power outage at Hostel Block A.,0,,CMP-02414,1.0,0
+CMP-00660,Please check the toilet is blocked at Main Canteen.,0,,CMP-02833,1.0,0
+CMP-02188,நடைபாதை அழுக்காக உள்ளது பிரச்சனை Academic Block Corridor இடத்தில் உள்ளது.,0,,CMP-01535,0.9097,0
+CMP-00482,Route 3 Bus Stop பகுதியில் அறிவிப்பின்றி பேருந்து பாதை மாற்றப்பட்டது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-02618,0.9414,0
+CMP-02819,There is a problem because the projector is not displaying at C-101.,0,,CMP-02216,1.0,0
+CMP-01177,There is a problem because the food price is incorrect at Main Canteen.,0,,CMP-01187,1.0,0
+CMP-02683,Please check the food appears unhygienic at Main Canteen.,0,,CMP-01820,1.0,0
+CMP-01010,வகுப்பறை மேசை உடைந்துள்ளது பிரச்சனை C-305 இடத்தில் உள்ளது.,0,,CMP-02181,0.9034,0
+CMP-00546,There is a problem because the campus street light is not working at Campus Road.,0,,CMP-02544,1.0,0
+CMP-03787,C-305 la projector display varala. Please check pannunga.,1,CMP-01010,CMP-01495,1.0,0
+CMP-00093,I want to report that there is a power outage in Hostel Block A.,0,,CMP-02842,0.9839,0
+CMP-00087,There is a problem because water is leaking from the pipe at Hostel Block B.,0,,CMP-00903,0.9101,0
+CMP-02394,Please check the internet connection is very slow at Computer Laboratory.,0,,CMP-01976,0.9192,0
+CMP-01435,Hostel Room 312 area la mattress damage aagiruku.,0,,CMP-03458,1.0,0
+CMP-02551,There is a problem because garbage has accumulated at Academic Block Corridor.,0,,CMP-01050,1.0,0
+CMP-01576,Please check garbage has accumulated at Library Washroom.,0,,CMP-00230,1.0,0
+CMP-02280,water supply varala at Hostel Block B. Kindly action edunga.,0,,CMP-02042,1.0,0
+CMP-02764,Please check there is a bad smell near the waste area at Girls Hostel Washroom.,0,,CMP-02778,0.9354,0
+CMP-00287,Girls Hostel Washroom இல் தண்ணீர் வழங்கல் இல்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01738,0.9515,0
+CMP-00909,Urgent attention is needed because the projector is not displaying in Electronics Laboratory.,0,,CMP-01963,1.0,0
+CMP-01946,Engineering Block area la toilet block aagiruku.,0,,CMP-00926,1.0,0
+CMP-02293,Please check the fee payment is not updated in the portal at Student Service Centre.,0,,CMP-02282,0.9132,0
+CMP-00628,I want to report that there is a power outage in Engineering Block.,0,,CMP-03250,0.9184,0
+CMP-00036,fan work aagala at Hostel Block B. Kindly action edunga.,0,,CMP-03569,1.0,0
+CMP-02996,Academic Block Corridor இல் குப்பை குவிந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01600,1.0,0
+CMP-03167,மின்விசிறி வேலை செய்யவில்லை பிரச்சனை Hostel Block B இடத்தில் உள்ளது.,1,CMP-00036,CMP-01153,1.0,0
+CMP-02239,drinking water dispenser work aagala at Hostel Mess. Kindly action edunga.,0,,CMP-01581,1.0,0
+CMP-02533,I want to report that the ceiling fan is not working in Hostel Block B.,0,,CMP-00014,0.988,0
+CMP-03491,Academic Block Corridor la corridor dirty ah iruku. Please check pannunga.,1,CMP-02996,CMP-03334,1.0,0
+CMP-01070,"Electronics Laboratory la classroom bench broken ah iruku, immediate ah solve pannunga.",0,,CMP-00947,1.0,0
+CMP-03706,Electronics Laboratory இல் வகுப்பறை மேசை உடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-01070,CMP-00429,1.0,0
+CMP-02296,Please check water is leaking near an electrical panel at Library Entrance.,0,,CMP-00640,0.9443,0
+CMP-01594,Academic Office பகுதியில் பொனஃபைடு சான்றிதழ் கோரிக்கை நிலுவையில் உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01016,1.0,0
+CMP-02887,Please check the Wi-Fi is not working at Central Library Reading Hall.,0,,CMP-02008,0.9501,0
+CMP-03812,"Library Entrance la unauthorized person hostel area la vandhirukanga, immediate ah solve pannunga.",1,CMP-02296,CMP-02436,1.0,0
+CMP-00552,North Canteen பகுதியில் உணவின் தரம் மோசமாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03502,1.0,0
+CMP-01434,Girls Hostel Washroom பகுதியில் குழாயில் தண்ணீர் கசிகிறது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03055,1.0,0
+CMP-02173,There is a problem because the room has a damaged window at Girls Hostel Block B.,0,,CMP-02178,0.943,0
+CMP-02182,North Canteen பகுதியில் கேன்டீன் சேவை மிகவும் மெதுவாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03225,1.0,0
+CMP-03310,North Canteen la food hygiene illa. Please check pannunga.,1,CMP-00552,CMP-02274,1.0,0
+CMP-00364,I want to report that the food quality is poor in Hostel Mess.,0,,CMP-03402,1.0,0
+CMP-01705,ERP login aagala at Hostel Block A. Kindly action edunga.,0,,CMP-01673,0.8694,0
+CMP-03214,Girls Hostel Washroom area la water supply varala.,1,CMP-01434,CMP-02684,0.9314,0
+CMP-00783,Urgent attention is needed because the Wi-Fi is not working in Central Library Reading Hall.,0,,CMP-00785,1.0,0
+CMP-01366,I want to report that the food quality is poor in Main Canteen.,0,,CMP-01057,0.9265,0
+CMP-03194,Urgent attention is needed because the food price is incorrect in North Canteen.,1,CMP-02182,CMP-03646,1.0,0
+CMP-00687,Engineering Block இல் குழல் விளக்கு மின்னுகிறது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-00634,0.911,0
+CMP-00739,Urgent attention is needed because the washroom tap is broken in Hostel Block A.,0,,CMP-01997,1.0,0
+CMP-01007,Hostel Block B பகுதியில் மின்விசிறி வேலை செய்யவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03757,1.0,0
+CMP-01731,வளாக பேருந்து தாமதமாக வந்தது பிரச்சனை Route 1 Bus Stop இடத்தில் உள்ளது.,0,,CMP-01866,1.0,0
+CMP-00128,Urgent attention is needed because the bonafide certificate request is pending in Scholarship Office.,0,,CMP-02776,0.9528,0
+CMP-00567,Student Service Centre பகுதியில் உதவித்தொகை நிலை புதுப்பிக்கப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01445,1.0,0
+CMP-02240,Route 3 Bus Stop பகுதியில் அறிவிப்பின்றி பேருந்து பாதை மாற்றப்பட்டது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-02618,0.9414,0
+CMP-01759,Route 1 Bus Stop area la bus route notice illama change pannitanga.,0,,CMP-03087,1.0,0
+CMP-01181,I want to report that the student portal is not loading in Hostel Block B.,0,,CMP-00990,1.0,0
+CMP-01609,Hostel Block B இல் மின்சாரம் இல்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01376,0.9775,0
+CMP-03020,Urgent attention is needed because the campus bus arrived late in Route 3 Bus Stop.,1,CMP-02240,CMP-02325,1.0,0
+CMP-03159,Hostel Block B பகுதியில் வைஃபை வேலை செய்யவில்லை. தயவுசெய்து சரிசெய்யவும்.,1,CMP-01181,CMP-00203,1.0,0
+CMP-01528,vehicle campus entrance block pannudhu at College Entrance. Kindly action edunga.,0,,CMP-02508,1.0,0
+CMP-02575,There is a problem because the laboratory equipment is not functioning at C-305.,0,,CMP-00982,0.9225,0
+CMP-00327,ஈஆர்பி உள்நுழைவு தோல்வியடைந்தது பிரச்சனை Computer Laboratory இடத்தில் உள்ளது.,0,,CMP-00638,0.8254,0
+CMP-03682,C-305 la classroom bench broken ah iruku. Please check pannunga.,1,CMP-02575,CMP-01493,0.983,0
+CMP-00385,I want to report that the corridor light is not working in Hostel Block B.,0,,CMP-01827,1.0,0
+CMP-02399,Please check the cupboard lock is not working at Hostel Room 214.,0,,CMP-02589,1.0,0
+CMP-02037,Hostel Room 312 இல் அறை சுத்தம் செய்யப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-00187,1.0,0
+CMP-01260,C-101 இல் ப்ரொஜெக்டர் காட்சி அளிக்கவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-00376,1.0,0
+CMP-01723,C-204 la switch damage aagiruku. Please check pannunga.,0,,CMP-01204,1.0,0
+CMP-00618,North Canteen பகுதியில் உணவின் தரம் மோசமாக உள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03502,1.0,0
+CMP-00465,I want to report that the ceiling fan is not working in C-305.,0,,CMP-01863,1.0,0
+CMP-03288,tube light flicker aagudhu at C-305. Kindly action edunga.,1,CMP-00465,CMP-00791,1.0,0
+CMP-03104,I want to report that the tube light is flickering in C-204.,1,CMP-01723,CMP-03891,1.0,0
+CMP-00159,கழிவறை அடைத்துள்ளது பிரச்சனை Hostel Block C இடத்தில் உள்ளது.,0,,CMP-00740,1.0,0
+CMP-01359,Examination Cell பகுதியில் உதவித்தொகை நிலை புதுப்பிக்கப்படவில்லை. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03251,1.0,0
+CMP-01475,I want to report that there is a power outage in Engineering Block.,0,,CMP-03250,0.9184,0
+CMP-02897,Please check the scholarship application status is not updated at Academic Office.,0,,CMP-01055,1.0,0
+CMP-03064,Engineering Block இல் மின்விசிறி வேலை செய்யவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-01475,CMP-03507,1.0,0
+CMP-00278,Hostel Block B la fan work aagala. Please check pannunga.,0,,CMP-03513,0.9664,0
+CMP-03413,There is a problem because the tube light is flickering at Hostel Block B.,1,CMP-00278,CMP-00478,0.9274,0
+CMP-02755,Girls Hostel Block B la window damage aagiruku. Please check pannunga.,0,,CMP-03471,0.9403,0
+CMP-01845,Girls Hostel Washroom பகுதியில் கழிவறை அடைத்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01654,1.0,0
+CMP-02705,Please check the room has a damaged window at Boys Hostel Block A.,0,,CMP-03032,0.9943,0
+CMP-02051,Main Canteen la washroom tap broken ah iruku. Please check pannunga.,0,,CMP-00443,1.0,0
+CMP-03722,I want to report that there is no water supply in Main Canteen.,1,CMP-02051,CMP-01397,1.0,0
+CMP-01505,I want to report that there is no water supply in Hostel Block B.,0,,CMP-00028,1.0,0
+CMP-03216,There is a problem because there is no water supply at Girls Hostel Washroom.,1,CMP-01845,CMP-02209,0.9339,0
+CMP-00474,"Boys Hostel Washroom la water tank overflow aagudhu, immediate ah solve pannunga.",0,,CMP-01277,0.9449,0
+CMP-01776,Urgent attention is needed because the classroom has poor ventilation in C-305.,0,,CMP-02677,1.0,0
+CMP-03684,Boys Hostel Washroom பகுதியில் கழிவறை குழாய் உடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,1,CMP-00474,CMP-02879,1.0,0
+CMP-02509,I want to report that there is a bad smell near the waste area in Main Canteen.,0,,CMP-00741,0.9485,0
+CMP-03043,"Main Canteen la washroom clean pannala, immediate ah solve pannunga.",1,CMP-02509,CMP-00270,0.8553,0
+CMP-01884,Hostel Room 312 பகுதியில் அறை கதவு பூட்டு உடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-00384,1.0,0
+CMP-01603,C-305 இல் வகுப்பறை மேசை உடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03037,0.9159,0
+CMP-03851,C-305 area la classroom bench broken ah iruku.,1,CMP-01603,CMP-03384,1.0,0
+CMP-01687,Urgent attention is needed because there is a power outage in Hostel Block B.,0,,CMP-02967,0.9818,0
+CMP-01471,Urgent attention is needed because garbage has accumulated in Boys Hostel Washroom.,0,,CMP-01717,1.0,0
+CMP-02906,There is a problem because the drinking water dispenser is not working at Main Canteen.,0,,CMP-02321,1.0,0
+CMP-00248,Urgent attention is needed because there is no parking space available in Main Parking Area.,0,,CMP-02294,1.0,0
+CMP-02629,வளாக பேருந்து தாமதமாக வந்தது பிரச்சனை Route 2 Bus Stop இடத்தில் உள்ளது.,0,,CMP-00337,1.0,0
+CMP-00827,ப்ரொஜெக்டர் காட்சி அளிக்கவில்லை பிரச்சனை C-101 இடத்தில் உள்ளது.,0,,CMP-00223,1.0,0
+CMP-00834,Hostel Block C area la pipe la water leak aagudhu.,0,,CMP-03526,1.0,0
+CMP-02815,"Hostel Block B la toilet block aagiruku, immediate ah solve pannunga.",0,,CMP-03836,0.8569,0
+CMP-03101,I want to report that the campus bus arrived late in Route 2 Bus Stop.,1,CMP-02629,CMP-01504,0.9632,0
+CMP-00208,Route 1 Bus Stop பகுதியில் வளாக பேருந்து தாமதமாக வந்தது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01702,1.0,0
+CMP-00237,மின்சாரம் இல்லை பிரச்சனை C-204 இடத்தில் உள்ளது.,0,,CMP-00488,1.0,0
+CMP-01268,Hostel Block A பகுதியில் கழிவறை அடைத்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-01012,1.0,0
+CMP-01635,Route 3 Bus Stop la parking space illa. Please check pannunga.,0,,CMP-00005,1.0,0
+CMP-00605,There is a problem because the toilet is blocked at Girls Hostel Washroom.,0,,CMP-02956,0.9211,0
+CMP-01817,There is a problem because there is no water supply at Hostel Block B.,0,,CMP-00662,0.9712,0
+CMP-03523,Route 3 Bus Stop இல் வளாக பேருந்து தாமதமாக வந்தது. உடனடியாக நடவடிக்கை எடுக்கவும்.,1,CMP-01635,CMP-00637,1.0,0
+CMP-01093,Urgent attention is needed because the water tank is overflowing in Hostel Block B.,0,,CMP-00303,0.988,0
+CMP-03393,Girls Hostel Washroom la washroom tap broken ah iruku. Please check pannunga.,1,CMP-00605,CMP-00471,1.0,0
+CMP-02844,வைஃபை வேலை செய்யவில்லை பிரச்சனை Hostel Block B இடத்தில் உள்ளது.,0,,CMP-01153,0.9798,0
+CMP-00984,There is a problem because the campus street light is not working at Hostel Block B.,0,,CMP-01590,1.0,0
+CMP-01542,Main Canteen இல் கழிவறை குழாய் உடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03431,1.0,0
+CMP-03370,"Hostel Block B la student portal load aagala, immediate ah solve pannunga.",1,CMP-02844,CMP-02843,0.916,0
+CMP-01240,I want to report that the classroom has poor ventilation in Electronics Laboratory.,0,,CMP-01391,1.0,0
+CMP-00578,Hostel Room 312 area la mattress damage aagiruku.,0,,CMP-03458,1.0,0
+CMP-00883,Please check there is no water supply at Main Canteen.,0,,CMP-01059,1.0,0
+CMP-02672,"AI Laboratory la lab equipment work aagala, immediate ah solve pannunga.",0,,CMP-01440,1.0,0
+CMP-03816,I want to report that the projector is not displaying in AI Laboratory.,1,CMP-02672,CMP-01585,0.8977,0
+CMP-02246,Campus Road பகுதியில் மின்பலகையின் அருகில் தண்ணீர் கசிகிறது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-00423,0.932,0
+CMP-02462,There is a problem because the room has a damaged window at Boys Hostel Block A.,0,,CMP-01354,1.0,0
+CMP-03265,Campus Road la glass panel broken ah iruku. Please check pannunga.,1,CMP-02246,CMP-01698,0.8912,0
+CMP-02095,Urgent attention is needed because the corridor light is not working in C-305.,0,,CMP-02201,1.0,0
+CMP-02421,There is a problem because the laboratory computer cannot access the network at Hostel Block B.,0,,CMP-02613,1.0,0
+CMP-03233,Boys Hostel Block A area la room clean pannala.,1,CMP-02462,CMP-03407,1.0,0
+CMP-01096,Campus Road la campus street light work aagala. Please check pannunga.,0,,CMP-00041,1.0,0
+CMP-02208,Urgent attention is needed because there is a power outage in Hostel Block A.,0,,CMP-02967,1.0,0
+CMP-01539,There is a problem because the washroom has not been cleaned at Academic Block Corridor.,0,,CMP-02520,0.9225,0
+CMP-00302,Route 3 Bus Stop பகுதியில் வளாக பேருந்து தாமதமாக வந்தது. தயவுசெய்து சரிசெய்யவும்.,0,,CMP-03244,1.0,0
+CMP-03680,Urgent attention is needed because the bus is overcrowded in Route 3 Bus Stop.,1,CMP-00302,CMP-02735,1.0,0
+CMP-00525,Library Washroom இல் கழிவறை சுத்தம் செய்யப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-03758,1.0,0
+CMP-01184,current supply illa at Hostel Block A. Kindly action edunga.,0,,CMP-03803,0.8202,0
+CMP-02482,கழிவறை சுத்தம் செய்யப்படவில்லை பிரச்சனை Girls Hostel Washroom இடத்தில் உள்ளது.,0,,CMP-01688,0.9886,0
+CMP-00815,Please check the projector is not displaying at Computer Laboratory.,0,,CMP-03033,0.9642,0
+CMP-01147,There is a problem because the ceiling fan is not working at C-305.,0,,CMP-01863,0.9367,0
+CMP-03516,"Computer Laboratory la AC work aagala, immediate ah solve pannunga.",1,CMP-00815,CMP-01049,1.0,0
+CMP-02797,Library Entrance இல் மின்பலகையின் அருகில் தண்ணீர் கசிகிறது. உடனடியாக நடவடிக்கை எடுக்கவும்.,0,,CMP-01482,1.0,0
+CMP-01356,Please check the food appears unhygienic at North Canteen.,0,,CMP-00442,1.0,0
+CMP-01132,இணைய இணைப்பு மிகவும் மெதுவாக உள்ளது பிரச்சனை AI Laboratory இடத்தில் உள்ளது.,0,,CMP-02242,1.0,0
+CMP-02960,Urgent attention is needed because the laboratory computer cannot access the network in Central Library.,0,,CMP-03291,0.9669,0
+CMP-02998,"Computer Laboratory la current supply illa, immediate ah solve pannunga.",0,,CMP-01854,0.8797,0
+CMP-03521,Urgent attention is needed because the tube light is flickering in Computer Laboratory.,1,CMP-02998,CMP-01200,1.0,0
+CMP-02560,Please check the cupboard lock is not working at Girls Hostel Block A.,0,,CMP-03447,0.9906,0
+CMP-00576,I want to report that the bus route was changed without notice in College Entrance.,0,,CMP-01226,1.0,0
+CMP-01182,மாணவர் தளம் திறக்கவில்லை பிரச்சனை AI Laboratory இடத்தில் உள்ளது.,0,,CMP-00814,1.0,0
+CMP-03381,parking space illa at College Entrance. Kindly action edunga.,1,CMP-00576,CMP-00207,1.0,0
+CMP-00535,Please check there is a power outage at C-204.,0,,CMP-01473,1.0,0
+CMP-00090,Please check the bonafide certificate request is pending at Scholarship Office.,0,,CMP-00070,1.0,0
+CMP-03173,"C-204 la current supply illa, immediate ah solve pannunga.",1,CMP-00535,CMP-02427,0.9456,0

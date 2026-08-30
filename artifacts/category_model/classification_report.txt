@@ -1,0 +1,16 @@
+                              precision    recall  f1-score   support
+
+Administration and Documents     1.0000    1.0000    1.0000        84
+    Classroom and Laboratory     1.0000    1.0000    1.0000        82
+       Cleanliness and Waste     1.0000    1.0000    1.0000        65
+        Electrical and Power     1.0000    1.0000    1.0000        70
+            Food and Canteen     1.0000    1.0000    1.0000        65
+    Hostel and Accommodation     1.0000    1.0000    1.0000        88
+         Safety and Security     1.0000    1.0000    1.0000        82
+       Transport and Parking     1.0000    1.0000    1.0000        95
+          Water and Plumbing     1.0000    1.0000    1.0000        88
+       Wi-Fi and IT Services     1.0000    1.0000    1.0000        72
+
+                    accuracy                         1.0000       791
+                   macro avg     1.0000    1.0000    1.0000       791
+                weighted avg     1.0000    1.0000    1.0000       791

@@ -1,0 +1,46 @@
+{
+  "target_column": "resolution_time_hours",
+  "feature_columns": [
+    "affected_population",
+    "safety_flag",
+    "repeat_count",
+    "category",
+    "location_type",
+    "language",
+    "priority"
+  ],
+  "numeric_features": [
+    "affected_population",
+    "safety_flag",
+    "repeat_count"
+  ],
+  "categorical_features": [
+    "category",
+    "location_type",
+    "language",
+    "priority"
+  ],
+  "train_records": 2720,
+  "validation_records": 389,
+  "test_records": 791,
+  "baseline_validation_metrics": {
+    "mae_hours": 14.8764,
+    "rmse_hours": 30.3094,
+    "r2_score": -0.0791
+  },
+  "model_validation_metrics": {
+    "mae_hours": 9.4773,
+    "rmse_hours": 16.4327,
+    "r2_score": 0.6828
+  },
+  "test_metrics": {
+    "mae_hours": 10.8971,
+    "rmse_hours": 17.8884,
+    "r2_score": 0.6122
+  },
+  "prediction_interval": {
+    "coverage_target": 0.9,
+    "plus_minus_hours": 23.66,
+    "method": "90th percentile absolute test residual"
+  }
+}

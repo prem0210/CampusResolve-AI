@@ -1,0 +1,48 @@
+{
+  "model_name": "structured_tfidf_risk_logistic_regression",
+  "target_column": "priority",
+  "structured_features": [
+    "affected_population",
+    "safety_flag",
+    "repeat_count",
+    "category",
+    "location_type",
+    "language"
+  ],
+  "risk_feature_names": [
+    "text_length",
+    "word_count",
+    "exclamation_count",
+    "question_count",
+    "urgency_terms_count",
+    "safety_terms_count",
+    "electrical_terms_count",
+    "health_sanitation_terms_count",
+    "security_terms_count",
+    "outage_terms_count"
+  ],
+  "train_records": 2720,
+  "validation_records": 389,
+  "test_records": 791,
+  "validation_metrics": {
+    "accuracy": 0.3265,
+    "macro_f1": 0.314,
+    "weighted_f1": 0.3342
+  },
+  "test_metrics": {
+    "accuracy": 0.3565,
+    "macro_f1": 0.3561,
+    "weighted_f1": 0.3534
+  },
+  "priority_labels": [
+    "Critical",
+    "High",
+    "Low",
+    "Medium"
+  ],
+  "baseline_test_metrics": {
+    "accuracy": 0.3527,
+    "macro_f1": 0.3469,
+    "weighted_f1": 0.3489
+  }
+}

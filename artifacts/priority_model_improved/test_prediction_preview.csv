@@ -1,0 +1,21 @@
+complaint_id,complaint_text,category,safety_flag,affected_population,priority,predicted_priority,confidence
+CMP-02888,ID card request delay aagudhu at Academic Office. Kindly action edunga.,Administration and Documents,0,13,Low,Low,0.7304
+CMP-01107,Central Library Reading Hall area la internet romba slow ah iruku.,Wi-Fi and IT Services,0,138,Medium,Medium,0.4741
+CMP-03802,Please check the ERP login is failing at Central Library Reading Hall.,Wi-Fi and IT Services,0,83,Medium,Medium,0.3675
+CMP-00195,current supply illa at Computer Laboratory. Kindly action edunga.,Electrical and Power,0,242,Medium,Medium,0.5081
+CMP-00686,"Student Service Centre la scholarship status update aagala, immediate ah solve pannunga.",Administration and Documents,0,22,Low,Low,0.55
+CMP-00355,Scholarship Office இல் கட்டண செலுத்துதல் தளத்தில் புதுப்பிக்கப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,Administration and Documents,0,10,Medium,Low,0.5326
+CMP-01567,I want to report that the mattress is damaged in Boys Hostel Block B.,Hostel and Accommodation,0,64,Low,Medium,0.55
+CMP-03354,மின்விசிறி வேலை செய்யவில்லை பிரச்சனை Computer Laboratory இடத்தில் உள்ளது.,Electrical and Power,0,66,Medium,Medium,0.3851
+CMP-00930,Girls Hostel Block B பகுதியில் மெத்தை சேதமடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,Hostel and Accommodation,0,99,High,High,0.3999
+CMP-00437,I want to report that the classroom has poor ventilation in C-305.,Classroom and Laboratory,0,78,High,Medium,0.3174
+CMP-01737,Urgent attention is needed because the electrical switch is damaged in Engineering Block.,Electrical and Power,0,21,Medium,Medium,0.5344
+CMP-01607,Please check the scholarship application status is not updated at Scholarship Office.,Administration and Documents,0,2,High,Low,0.568
+CMP-01777,Hostel Block B பகுதியில் ஈஆர்பி உள்நுழைவு தோல்வியடைந்தது. தயவுசெய்து சரிசெய்யவும்.,Wi-Fi and IT Services,0,179,Low,Medium,0.5595
+CMP-01587,There is a problem because the ID card request is delayed at Accounts Office.,Administration and Documents,0,22,Low,Low,0.5297
+CMP-03591,Boys Hostel Block B பகுதியில் மெத்தை சேதமடைந்துள்ளது. தயவுசெய்து சரிசெய்யவும்.,Hostel and Accommodation,0,205,Low,High,0.3101
+CMP-03788,Scholarship Office இல் உதவித்தொகை நிலை புதுப்பிக்கப்படவில்லை. உடனடியாக நடவடிக்கை எடுக்கவும்.,Administration and Documents,0,1,High,Medium,0.5007
+CMP-02419,Library Entrance இல் கண்ணாடி பலகம் உடைந்துள்ளது. உடனடியாக நடவடிக்கை எடுக்கவும்.,Safety and Security,1,131,Critical,Critical,0.7154
+CMP-00178,Please check the campus bus arrived late at College Entrance.,Transport and Parking,0,36,Medium,Low,0.3777
+CMP-00901,I want to report that there is a broken glass panel in Library Entrance.,Safety and Security,1,60,Critical,Critical,0.7165
+CMP-01638,Urgent attention is needed because the water tank is overflowing in Girls Hostel Washroom.,Water and Plumbing,0,198,High,High,0.4543

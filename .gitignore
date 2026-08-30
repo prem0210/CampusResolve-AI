@@ -1,0 +1,50 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache and build files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+build/
+dist/
+*.egg-info/
+
+# Environment and secrets
+.env
+*.env.local
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Test and tool caches
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+huggingface/
+
+# ML artifacts and indexes
+artifacts/**/*.pkl
+artifacts/**/*.joblib
+artifacts/**/*.bin
+artifacts/**/*.index
+artifacts/**/*.npy
+artifacts/**/*.npz
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS and editor files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

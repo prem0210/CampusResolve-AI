@@ -1,0 +1,63 @@
+{
+  "model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "text_column": "complaint_text",
+  "embedding_dimension": 384,
+  "index_type": "IndexFlatIP",
+  "top_k": 5,
+  "metrics": {
+    "validation_records": 389,
+    "validation_duplicate_records": 89,
+    "top1_exact_duplicate_match_rate": 0.0,
+    "threshold_results": [
+      {
+        "threshold": 0.6,
+        "precision": 0.2288,
+        "recall": 1.0,
+        "f1": 0.3724
+      },
+      {
+        "threshold": 0.65,
+        "precision": 0.2288,
+        "recall": 1.0,
+        "f1": 0.3724
+      },
+      {
+        "threshold": 0.7,
+        "precision": 0.2288,
+        "recall": 1.0,
+        "f1": 0.3724
+      },
+      {
+        "threshold": 0.75,
+        "precision": 0.2288,
+        "recall": 1.0,
+        "f1": 0.3724
+      },
+      {
+        "threshold": 0.8,
+        "precision": 0.2288,
+        "recall": 1.0,
+        "f1": 0.3724
+      },
+      {
+        "threshold": 0.85,
+        "precision": 0.2266,
+        "recall": 0.9775,
+        "f1": 0.3679
+      },
+      {
+        "threshold": 0.9,
+        "precision": 0.2204,
+        "recall": 0.8989,
+        "f1": 0.354
+      }
+    ],
+    "selected_threshold": 0.6,
+    "selected_threshold_metrics": {
+      "threshold": 0.6,
+      "precision": 0.2288,
+      "recall": 1.0,
+      "f1": 0.3724
+    }
+  }
+}
