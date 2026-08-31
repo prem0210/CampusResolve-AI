@@ -263,6 +263,10 @@ def apply_example(example: dict[str, Any]) -> None:
     for key, value in example.items():
         st.session_state[key] = value
 
+def open_tracker(reference: str, result: dict[str, Any]) -> None:
+    st.session_state["pending_track_reference"] = reference
+    st.session_state["tracked_complaint"] = None
+    st.session_state["active_page"] = "🔎 Track complaint"
 
 def show_student_portal(api_ready: bool) -> None:
     st.markdown(
@@ -359,30 +363,85 @@ def show_student_portal(api_ready: bool) -> None:
             with st.spinner("Submitting and analyzing your complaint..."):
                 result = api_post("/complaints", payload)
 
-            st.session_state.last_submission = result
+            st.session_state["last_submission"] = result
             st.success(
                 f"Complaint submitted successfully. Reference: "
                 f"{result['complaint_reference']}"
             )
         except requests.RequestException as error:
-            st.error(f"Submission failed: {error}")
+            st.error("Submission failed. Please try again.")
+            with st.expander("Technical details"):
+                st.code(str(error))
 
     result = st.session_state.get("last_submission")
 
     if not result:
+        st.markdown(
+            """
+            <div class="queue-card">
+                <div class="queue-reference">What happens after submission?</div>
+                <div class="queue-meta">
+                    CampusResolve-AI analyzes the complaint text, recommends a
+                    category and department, checks for similar historic reports,
+                    forecasts priority, and estimates a likely resolution time.
+                    Campus staff review the recommendation before taking action.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         return
 
     st.divider()
-    st.markdown("### AI recommendation")
 
-    if result["possible_duplicate"]:
-        st.warning("A possible duplicate was detected. Staff will review it.")
-    else:
-        st.success("No high-confidence duplicate was detected.")
+    reference = result["complaint_reference"]
+    priority = result["predicted_priority"]
+    duplicate_flag = result["possible_duplicate"]
 
-    col1, col2, col3 = st.columns(3)
+    st.markdown(
+        f"""
+        <div class="queue-card">
+            <div class="queue-reference">Complaint submitted · {reference}</div>
+            <div class="queue-meta">
+                Your complaint has been recorded and sent for staff review.
+                Use this reference ID to track progress.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    with col1:
+    result_col1, result_col2 = st.columns([3, 2], gap="large")
+
+    with result_col1:
+        st.markdown(
+            '<div class="section-kicker">AI recommendation</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="section-title">Initial routing and priority assessment</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="section-subtitle">'
+            "These are explainable recommendations for staff review. "
+            "Campus staff make the final operational decision."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    with result_col2:
+        if duplicate_flag:
+            st.warning(
+                "Possible duplicate detected. Staff will review whether this "
+                "issue is already being handled."
+            )
+        else:
+            st.success("No high-confidence duplicate was detected.")
+
+    metric_col1, metric_col2, metric_col3 = st.columns(3, gap="medium")
+
+    with metric_col1:
         st.metric(
             "Category",
             result["predicted_category"],
@@ -390,22 +449,97 @@ def show_student_portal(api_ready: bool) -> None:
         )
         st.caption(f"Department: {result['assigned_department']}")
 
-    with col2:
+    with metric_col2:
         st.metric(
-            "Priority",
-            f"{priority_emoji(result['predicted_priority'])} "
-            f"{result['predicted_priority']}",
+            "Priority recommendation",
+            f"{priority_emoji(priority)} {priority}",
             f"{result['priority_confidence']:.1%} confidence",
         )
+        st.caption(f"Assessment level: {priority}")
 
-    with col3:
+    with metric_col3:
         st.metric(
-            "Resolution estimate",
+            "Estimated resolution",
             f"{result['estimated_resolution_hours']:.1f} hrs",
             f"±{result['prediction_interval_plus_minus_hours']:.1f} hrs",
         )
+        st.caption("Estimate based on the current complaint information")
 
-    st.info(result["explanation"])
+    insight_col1, insight_col2 = st.columns(2, gap="large")
+
+    with insight_col1:
+        with st.container(border=True):
+            st.markdown("#### Recommended department")
+            st.write(result["assigned_department"])
+            st.caption(
+                "The category model uses the complaint text to suggest the "
+                "most relevant operational department."
+            )
+
+    with insight_col2:
+        with st.container(border=True):
+            st.markdown("#### Duplicate review")
+            if duplicate_flag:
+                st.write("Staff review recommended")
+                if result.get("top_duplicate_id"):
+                    similarity = result.get("top_duplicate_similarity")
+                    if similarity is None:
+                        st.caption(
+                            f"Similar historic reference: {result['top_duplicate_id']}"
+                        )
+                    else:
+                        st.caption(
+                            f"Similar historic reference: {result['top_duplicate_id']} "
+                            f"· Similarity: {similarity:.1%}"
+                        )
+            else:
+                st.write("No high-confidence match")
+                st.caption(
+                    "No similar historic complaint exceeded the duplicate "
+                    "review threshold."
+                )
+
+    with st.expander("Why did the system make this recommendation?"):
+        st.write(result["explanation"])
+        st.markdown("##### Confidence and estimate guide")
+        st.markdown(
+            """
+            - **Category confidence** indicates how strongly the category
+              classifier matched the complaint text to the predicted issue type.
+            - **Priority confidence** indicates the model's confidence in the
+              recommended urgency level.
+            - **Resolution estimate** is a prediction, not a service guarantee.
+              The ± value shows the model's uncertainty range.
+            - **Duplicate flag** indicates a semantically similar earlier
+              complaint and requires staff review.
+            """
+        )
+
+    action_col1, action_col2 = st.columns([1, 1])
+
+    with action_col1:
+        st.button(
+            "🔎 Track this complaint",
+            type="primary",
+            use_container_width=True,
+            key="go_to_tracker",
+            on_click=open_tracker,
+            args=(reference, result),
+        )
+
+    with action_col2:
+        if st.button(
+            "➕ Submit another complaint",
+            use_container_width=True,
+            key="start_new_complaint",
+        ):
+            st.session_state["last_submission"] = None
+            st.session_state["complaint_text"] = ""
+            st.session_state["specific_location"] = ""
+            st.session_state["affected_population"] = 1
+            st.session_state["safety_flag"] = False
+            st.session_state["repeat_count"] = 0
+            st.rerun()
 
 
 def show_staff_dashboard(api_ready: bool) -> None:
@@ -418,6 +552,15 @@ def show_staff_dashboard(api_ready: bool) -> None:
         unsafe_allow_html=True,
     )
 
+    st.markdown(
+        '<div class="section-subtitle">'
+        "Review AI recommendations, prioritize urgent reports, and record "
+        "staff decisions. Model outputs support staff judgment and do not "
+        "replace final operational decisions."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
     if not api_ready:
         st.error("FastAPI backend is unavailable. Start the API first.")
         return
@@ -425,7 +568,9 @@ def show_staff_dashboard(api_ready: bool) -> None:
     try:
         summary = api_get("/dashboard/summary")
     except requests.RequestException as error:
-        st.error(f"Could not load dashboard summary: {error}")
+        st.error("Could not load dashboard summary.")
+        with st.expander("Technical details"):
+            st.code(str(error))
         return
 
     metric_columns = st.columns(5)
@@ -434,6 +579,22 @@ def show_staff_dashboard(api_ready: bool) -> None:
     metric_columns[2].metric("In progress", summary["in_progress_complaints"])
     metric_columns[3].metric("Critical active", summary["critical_open_complaints"])
     metric_columns[4].metric("Duplicate flags", summary["possible_duplicate_complaints"])
+
+    st.write("")
+
+    queue_status_col1, queue_status_col2, queue_status_col3 = st.columns(3)
+
+    queue_status_col1.info(
+        f"Open queue: {summary['open_complaints']} complaint(s) awaiting action."
+    )
+    queue_status_col2.warning(
+        f"Critical active: {summary['critical_open_complaints']} complaint(s) "
+        "need priority review."
+    )
+    queue_status_col3.info(
+        f"Possible duplicates: {summary['possible_duplicate_complaints']} "
+        "complaint(s) require verification."
+    )
 
     st.write("")
 
@@ -478,7 +639,9 @@ def show_staff_dashboard(api_ready: bool) -> None:
     try:
         queue_data = api_get("/complaints", params=params)
     except requests.RequestException as error:
-        st.error(f"Could not load complaint queue: {error}")
+        st.error("Could not load complaint queue.")
+        with st.expander("Technical details"):
+            st.code(str(error))
         return
 
     complaints = queue_data["complaints"]
@@ -524,11 +687,7 @@ def show_staff_dashboard(api_ready: bool) -> None:
         st.plotly_chart(priority_chart, use_container_width=True)
 
     with chart_col2:
-        department_counts = (
-            df["assigned_department"]
-            .value_counts()
-            .reset_index()
-        )
+        department_counts = df["assigned_department"].value_counts().reset_index()
         department_counts.columns = ["Department", "Count"]
 
         department_chart = px.bar(
@@ -628,49 +787,99 @@ def show_staff_dashboard(api_ready: bool) -> None:
             "Yes" if selected["possible_duplicate"] else "No",
         )
 
-        if selected["top_duplicate_id"]:
+        duplicate_id = selected.get("top_duplicate_id")
+        duplicate_similarity = selected.get("top_duplicate_similarity")
+
+        if selected.get("possible_duplicate") and duplicate_id:
+            similarity_text = (
+                f"{duplicate_similarity:.1%}"
+                if duplicate_similarity is not None
+                else "not available"
+            )
             st.warning(
-                f"Top similar historic complaint: "
-                f"{selected['top_duplicate_id']} "
-                f"(similarity: {selected['top_duplicate_similarity']:.3f})"
+                f"Duplicate review required: a similar historic complaint "
+                f"({duplicate_id}) was identified with similarity "
+                f"{similarity_text}."
+            )
+        else:
+            st.warning(
+                    f"Top similar historic complaint: "
+                    f"{selected['top_duplicate_id']} "
+                    f"(similarity: {similarity:.3f})"
             )
 
         with st.form("staff_update_form"):
+            current_status = selected.get("status", "Open")
+            status_index = (
+                STATUSES.index(current_status)
+                if current_status in STATUSES
+                else 0
+            )
             new_status = st.selectbox(
                 "Update status",
                 options=STATUSES,
-                index=STATUSES.index(selected["status"]),
+                index=status_index,
             )
 
             staff_notes = st.text_area(
                 "Staff notes",
-                value=selected["staff_notes"] or "",
-                placeholder="Example: Maintenance technician assigned.",
+                value=selected.get("staff_notes") or "",
+                placeholder=(
+                    "Example: Technician assigned. Expected inspection: "
+                    "tomorrow morning."
+                ),
                 height=100,
+            )
+
+            review_confirmed = st.checkbox(
+                "I reviewed the complaint details and confirm this update.",
+                key=f"review_confirmed_{selected_reference}",
             )
 
             update_submitted = st.form_submit_button(
                 "Save staff update",
                 type="primary",
+                use_container_width=True,
             )
 
         if update_submitted:
+            if not review_confirmed:
+                st.warning(
+                    "Confirm that you reviewed the complaint before saving "
+                    "the staff update."
+                )
+                return
+
             update_payload = {
                 "status": new_status,
                 "staff_notes": staff_notes.strip() or None,
             }
 
             try:
-                api_patch(
-                    f"/complaints/{selected_reference}",
-                    update_payload,
+                with st.spinner("Saving staff update..."):
+                    api_patch(
+                        f"/complaints/{selected_reference}",
+                        update_payload,
+                    )
+
+                st.success(
+                    f"{selected_reference} was updated to '{new_status}'."
                 )
-                st.success("Complaint status and staff notes updated.")
                 st.rerun()
+
             except requests.RequestException as error:
-                st.error(f"Update failed: {error}")
+                st.error("The staff update could not be saved. Please try again.")
+                with st.expander("Technical details"):
+                    st.code(str(error))
+                
+
 
 def show_complaint_tracker(api_ready: bool) -> None:
+    if st.session_state.get("pending_track_reference"):
+        st.session_state["track_reference"] = st.session_state.pop(
+            "pending_track_reference"
+        )
+
     st.markdown(
         '<div class="section-kicker">Complaint tracking</div>',
         unsafe_allow_html=True,
@@ -724,7 +933,6 @@ def show_complaint_tracker(api_ready: bool) -> None:
                 complaint = api_get(f"/complaints/{reference}")
 
             st.session_state["tracked_complaint"] = complaint
-
         except requests.HTTPError as error:
             if error.response is not None and error.response.status_code == 404:
                 st.warning(
@@ -734,16 +942,13 @@ def show_complaint_tracker(api_ready: bool) -> None:
                 st.error("We could not retrieve this complaint. Please try again.")
                 with st.expander("Technical details"):
                     st.code(str(error))
-
             st.session_state["tracked_complaint"] = None
-
         except requests.RequestException as error:
             st.error(
                 "The complaint service could not be reached. Please try again shortly."
             )
             with st.expander("Technical details"):
                 st.code(str(error))
-
             st.session_state["tracked_complaint"] = None
 
     complaint = st.session_state.get("tracked_complaint")
@@ -786,10 +991,7 @@ def show_complaint_tracker(api_ready: bool) -> None:
 
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
-    metric_col1.metric(
-        "Status",
-        status,
-    )
+    metric_col1.metric("Status", status)
     metric_col2.metric(
         "Priority recommendation",
         f"{priority_emoji(priority)} {priority}",
@@ -810,23 +1012,38 @@ def show_complaint_tracker(api_ready: bool) -> None:
 
     with details_col1:
         st.markdown("#### Routing recommendation")
-        st.write(f"**Category:** {complaint['predicted_category']}")
-        st.write(f"**Assigned department:** {complaint['assigned_department']}")
-        st.write(f"**Location:** {complaint['specific_location']}")
-        st.write(f"**Language:** {complaint['language']}")
+        st.write(
+        f"**Category:** {complaint.get('predicted_category', 'Not available')}"
+        )
+        st.write(
+        f"**Assigned department:** "
+        f"{complaint.get('assigned_department', 'Not available')}"
+        )
+        st.write(
+        f"**Location:** "
+        f"{complaint.get('specific_location', 'Not specified')}"
+        )
+        st.write(f"**Language:** {complaint.get('language', 'Not available')}")
 
     with details_col2:
         st.markdown("#### Complaint details")
-        st.write(f"**People affected:** {complaint['affected_population']}")
         st.write(
-            f"**Safety concern:** "
-            f"{'Yes' if complaint['safety_flag'] else 'No'}"
+        f"**People affected:** "
+        f"{complaint.get('affected_population', 'Not available')}"
         )
-        st.write(f"**Earlier reports:** {complaint['repeat_count']}")
-        st.write(f"**Submitted:** {complaint['created_at']}")
+        safety_flag = complaint.get("safety_flag")
+        safety_label = (
+        "Yes" if safety_flag else "No" if safety_flag is not None else "Not available"
+        )
+        st.write(f"**Safety concern:** {safety_label}")
+        st.write(
+        f"**Earlier reports:** "
+        f"{complaint.get('repeat_count', 'Not available')}"
+        )
+        st.write(f"**Submitted:** {complaint.get('created_at', 'Not available')}")
 
-    st.markdown("#### Your complaint")
-    st.info(complaint["complaint_text"])
+        st.markdown("#### Your complaint")
+        st.info(complaint.get("complaint_text", "Complaint text is not available."))
 
     if complaint.get("staff_notes"):
         st.markdown("#### Latest staff update")
@@ -835,7 +1052,12 @@ def show_complaint_tracker(api_ready: bool) -> None:
         st.caption("No staff update has been added yet.")
 
     with st.expander("Why did the system make this recommendation?"):
-        st.write(complaint["explanation"])
+        st.write(
+    complaint.get(
+        "explanation",
+        "No prediction explanation is available for this complaint.",
+    )
+)
 
     if is_duplicate and complaint.get("top_duplicate_id"):
         st.warning(
@@ -880,6 +1102,7 @@ def show_about_page() -> None:
         "complaint data."
     )
 
+
 def main() -> None:
     st.set_page_config(
         page_title="CampusResolve-AI",
@@ -902,6 +1125,7 @@ def main() -> None:
         "active_page": "📝 Report an issue",
         "track_reference": "",
         "tracked_complaint": None,
+        "pending_track_reference": None,
     }
 
     for key, value in defaults.items():
@@ -962,7 +1186,7 @@ def main() -> None:
         st.divider()
         st.caption("Research prototype · Staff review is required.")
 
-        page = st.radio(
+    page = st.radio(
         "Navigate",
         options=[
             "📝 Report an issue",
@@ -977,13 +1201,10 @@ def main() -> None:
 
     if page == "📝 Report an issue":
         show_student_portal(api_ready)
-
     elif page == "🔎 Track complaint":
         show_complaint_tracker(api_ready)
-
     elif page == "📊 Staff workspace":
         show_staff_dashboard(api_ready)
-
     else:
         show_about_page()
 
