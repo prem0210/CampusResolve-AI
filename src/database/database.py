@@ -47,6 +47,61 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def initialise_database() -> None:
-    from src.database.models import Complaint
+    from src.database.models import (
+    AuditLog,
+    CampusBlock,
+    Complaint,
+    ComplaintOwnership,
+    ComplaintStatusHistory,
+    ComplaintVerification,
+    Department,
+    LocationType,
+    MLFeedbackRecord,
+    User,
+)
 
     Base.metadata.create_all(bind=engine)
+
+def create_audit_log(
+    db: Session,
+    actor_user_id: int | None,
+    action: str,
+    entity_type: str,
+    entity_id: str,
+    details: str | None = None,
+) -> AuditLog:
+    audit_log = AuditLog(
+        actor_user_id=actor_user_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details=details,
+    )
+
+    db.add(audit_log)
+    db.commit()
+    db.refresh(audit_log)
+
+    return audit_log
+
+
+def list_audit_logs(
+    db: Session,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    limit: int = 100,
+) -> list[AuditLog]:
+    query = select(AuditLog).order_by(desc(AuditLog.created_at))
+
+    filters = []
+
+    if entity_type:
+        filters.append(AuditLog.entity_type == entity_type)
+
+    if entity_id:
+        filters.append(AuditLog.entity_id == entity_id)
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    return list(db.scalars(query.limit(limit)).all())
