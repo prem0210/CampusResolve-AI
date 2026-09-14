@@ -46,3 +46,9 @@ artifacts/**/*.npz
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local SQLite databases and backups
+campusresolve.db
+backups/
+*.db
+
