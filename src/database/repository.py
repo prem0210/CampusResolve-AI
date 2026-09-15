@@ -12,6 +12,7 @@ from src.database.models import (
     AuditLog,
     CampusBlock,
     Complaint,
+    ComplaintAssignment,
     ComplaintOwnership,
     ComplaintStatusHistory,
     ComplaintVerification,
@@ -108,6 +109,7 @@ def list_complaints(
     priority: str | None = None,
     department: str | None = None,
     category: str | None = None,
+    submitted_by_user_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[Complaint]]:
@@ -125,21 +127,27 @@ def list_complaints(
     if category:
         filters.append(Complaint.predicted_category == category)
 
+    if submitted_by_user_id is not None:
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintOwnership.complaint_id).where(
+                    ComplaintOwnership.submitted_by_user_id
+                    == submitted_by_user_id
+                )
+            )
+        )
+
     query = select(Complaint)
 
     if filters:
         query = query.where(and_(*filters))
 
-    total = int(
-        db.scalar(
-            select(func.count())
-            .select_from(Complaint)
-            .where(and_(*filters))
-            if filters
-            else select(func.count()).select_from(Complaint)
-        )
-        or 0
-    )
+    count_query = select(func.count()).select_from(Complaint)
+
+    if filters:
+        count_query = count_query.where(and_(*filters))
+
+    total = int(db.scalar(count_query) or 0)
 
     complaints = list(
         db.scalars(
@@ -166,12 +174,30 @@ def update_complaint(
     return complaint
 
 
-def get_dashboard_summary(db: Session) -> dict[str, int]:
+def get_dashboard_summary(
+    db: Session,
+    submitted_by_user_id: int | None = None,
+) -> dict[str, int]:
+    ownership_filter = None
+
+    if submitted_by_user_id is not None:
+        ownership_filter = Complaint.id.in_(
+            select(ComplaintOwnership.complaint_id).where(
+                ComplaintOwnership.submitted_by_user_id
+                == submitted_by_user_id
+            )
+        )
+
     def count_with_filters(*conditions: Any) -> int:
         query = select(func.count()).select_from(Complaint)
 
-        if conditions:
-            query = query.where(and_(*conditions))
+        filters = list(conditions)
+
+        if ownership_filter is not None:
+            filters.append(ownership_filter)
+
+        if filters:
+            query = query.where(and_(*filters))
 
         return int(db.scalar(query) or 0)
 
@@ -184,7 +210,9 @@ def get_dashboard_summary(db: Session) -> dict[str, int]:
         "resolved_complaints": count_with_filters(
             Complaint.status == "Resolved"
         ),
-        "closed_complaints": count_with_filters(Complaint.status == "Closed"),
+        "closed_complaints": count_with_filters(
+            Complaint.status == "Closed"
+        ),
         "critical_open_complaints": count_with_filters(
             Complaint.status.in_(["Open", "In Progress"]),
             Complaint.predicted_priority == "Critical",
@@ -424,10 +452,11 @@ def list_audit_logs(
     db: Session,
     entity_type: str | None = None,
     entity_id: str | None = None,
+    action: str | None = None,
+    actor_user_id: int | None = None,
     limit: int = 100,
-) -> list[AuditLog]:
-    query = select(AuditLog).order_by(desc(AuditLog.created_at))
-
+    offset: int = 0,
+) -> tuple[int, list[AuditLog]]:
     filters = []
 
     if entity_type:
@@ -436,11 +465,33 @@ def list_audit_logs(
     if entity_id:
         filters.append(AuditLog.entity_id == entity_id)
 
+    if action:
+        filters.append(AuditLog.action == action)
+
+    if actor_user_id is not None:
+        filters.append(AuditLog.actor_user_id == actor_user_id)
+
+    query = select(AuditLog)
+
     if filters:
         query = query.where(and_(*filters))
 
-    return list(db.scalars(query.limit(limit)).all())
+    count_query = select(func.count()).select_from(AuditLog)
 
+    if filters:
+        count_query = count_query.where(and_(*filters))
+
+    total = int(db.scalar(count_query) or 0)
+
+    logs = list(
+        db.scalars(
+            query.order_by(desc(AuditLog.created_at))
+            .offset(offset)
+            .limit(limit)
+        ).all()
+    )
+
+    return total, logs
 def get_complaint_verification(
     db: Session,
     complaint_id: int,
@@ -624,3 +675,104 @@ def is_complaint_owner(
         ownership is not None
         and ownership.submitted_by_user_id == user_id
     )
+
+def list_unowned_complaints(
+    db: Session,
+    limit: int = 100,
+    offset: int = 0,
+) -> tuple[int, list[Complaint]]:
+    ownership_exists = (
+        select(ComplaintOwnership.id)
+        .where(ComplaintOwnership.complaint_id == Complaint.id)
+        .exists()
+    )
+
+    base_query = select(Complaint).where(~ownership_exists)
+
+    total = int(
+        db.scalar(
+            select(func.count())
+            .select_from(Complaint)
+            .where(~ownership_exists)
+        )
+        or 0
+    )
+
+    complaints = list(
+        db.scalars(
+            base_query
+            .order_by(desc(Complaint.created_at))
+            .offset(offset)
+            .limit(limit)
+        ).all()
+    )
+
+    return total, complaints
+
+
+def update_complaint_ownership(
+    db: Session,
+    ownership: ComplaintOwnership,
+    submitted_by_user_id: int,
+) -> ComplaintOwnership:
+    ownership.submitted_by_user_id = submitted_by_user_id
+
+    db.commit()
+    db.refresh(ownership)
+
+    return ownership
+
+def get_complaint_assignment(
+    db: Session,
+    complaint_id: int,
+) -> ComplaintAssignment | None:
+    return db.scalar(
+        select(ComplaintAssignment).where(
+            ComplaintAssignment.complaint_id == complaint_id
+        )
+    )
+
+
+def create_complaint_assignment(
+    db: Session,
+    complaint_id: int,
+    assigned_to_user_id: int,
+    assigned_department_id: int | None,
+    assignment_note: str | None,
+    assigned_by_user_id: int,
+) -> ComplaintAssignment:
+    assignment = ComplaintAssignment(
+        complaint_id=complaint_id,
+        assigned_to_user_id=assigned_to_user_id,
+        assigned_department_id=assigned_department_id,
+        assignment_note=assignment_note.strip() if assignment_note else None,
+        assigned_by_user_id=assigned_by_user_id,
+    )
+
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+
+    return assignment
+
+
+def update_complaint_assignment(
+    db: Session,
+    assignment: ComplaintAssignment,
+    assigned_to_user_id: int,
+    assigned_department_id: int | None,
+    assignment_note: str | None,
+    assigned_by_user_id: int,
+) -> ComplaintAssignment:
+    assignment.assigned_to_user_id = assigned_to_user_id
+    assignment.assigned_department_id = assigned_department_id
+    assignment.assignment_note = (
+        assignment_note.strip() if assignment_note else None
+    )
+    assignment.assigned_by_user_id = assigned_by_user_id
+    assignment.assigned_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(assignment)
+
+    return assignment

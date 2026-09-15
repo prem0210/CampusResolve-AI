@@ -434,6 +434,55 @@ class ComplaintOwnership(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+
+class ComplaintAssignment(Base):
+    __tablename__ = "complaint_assignments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+
+    complaint_id: Mapped[int] = mapped_column(
+        ForeignKey("complaints.id"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    assigned_to_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    assigned_department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id"),
+        nullable=True,
+        index=True,
+    )
+
+    assignment_note: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    assigned_by_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+        index=True,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
     
 class Complaint(Base):
     __tablename__ = "complaints"

@@ -12,6 +12,12 @@ from apps.api.core.security import (
     create_access_token,
     verify_password,
 )
+from apps.api.core.workflow import (
+    ALLOWED_STATUS_TRANSITIONS,
+    DUPLICATE_DECISIONS,
+    FINAL_PRIORITIES,
+    IMPACT_VERIFICATION_STATUSES,
+)
 from apps.api.schemas.auth import (
     LoginRequest,
     TokenResponse,
@@ -47,6 +53,20 @@ from apps.api.schemas.master_data import (
     LocationTypeListResponse,
     LocationTypeResponse,
 )
+from apps.api.schemas.ownership import (
+    ComplaintOwnershipResponse,
+    ComplaintOwnershipUpdateRequest,
+    UnownedComplaintListResponse,
+    UnownedComplaintResponse,
+)
+from apps.api.schemas.audit import (
+    AuditLogListResponse,
+    AuditLogResponse,
+)
+from apps.api.schemas.assignment import (
+    ComplaintAssignmentRequest,
+    ComplaintAssignmentResponse,
+)
 from apps.api.services.prediction_service import PredictionService
 from src.database.database import get_db, initialise_database
 from src.database.models import Complaint, User
@@ -81,6 +101,14 @@ from src.database.repository import (
     update_complaint_verification,
     update_department,
     update_ml_feedback_record,
+    get_complaint_ownership,
+    get_user_by_id,
+    list_unowned_complaints,
+    update_complaint_ownership,
+    list_audit_logs,
+    create_complaint_assignment,
+    get_complaint_assignment,
+    update_complaint_assignment,
 )
 
 prediction_service = PredictionService()
@@ -667,36 +695,28 @@ def get_complaints(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ComplaintQueueResponse:
+    submitted_by_user_id = (
+        current_user.id
+        if current_user.role == "Student"
+        else None
+    )
+
     total, complaints = list_complaints(
         db=db,
         status=complaint_status,
         priority=priority,
         department=department,
         category=category,
+        submitted_by_user_id=submitted_by_user_id,
         limit=limit,
         offset=offset,
     )
 
-    if current_user.role in {"Staff", "Admin"}:
-        visible_complaints = complaints
-        visible_total = total
-    else:
-        visible_complaints = [
-            complaint
-            for complaint in complaints
-            if is_complaint_owner(
-                db=db,
-                complaint_id=complaint.id,
-                user_id=current_user.id,
-            )
-        ]
-        visible_total = len(visible_complaints)
-
     return ComplaintQueueResponse(
-        total=visible_total,
+        total=total,
         complaints=[
             serialize_complaint(complaint)
-            for complaint in visible_complaints
+            for complaint in complaints
         ],
     )
 
@@ -760,6 +780,30 @@ def update_stored_complaint(
     previous_status = complaint.status
     requested_status = updates.get("status")
     note_for_history = updates.get("staff_notes")
+
+    if requested_status is not None:
+        if requested_status == previous_status:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Complaint status is already set to this value.",
+            )
+
+        allowed_next_statuses = ALLOWED_STATUS_TRANSITIONS.get(
+            previous_status,
+            set(),
+        )
+
+        if requested_status not in allowed_next_statuses:
+            allowed_text = ", ".join(sorted(allowed_next_statuses))
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Invalid status transition from {previous_status} "
+                    f"to {requested_status}. "
+                    f"Allowed next status values: {allowed_text or 'none'}."
+                ),
+            )
 
     updated_complaint = update_complaint(
         db=db,
@@ -849,6 +893,215 @@ def get_complaint_status_history(
         ],
     )
 
+@app.put(
+    "/complaints/{complaint_reference}/assignment",
+    response_model=ComplaintAssignmentResponse,
+)
+def set_assignment(
+    complaint_reference: str,
+    request: ComplaintAssignmentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Staff", "Admin")),
+) -> ComplaintAssignmentResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    assigned_user = get_user_by_id(
+        db=db,
+        user_id=request.assigned_to_user_id,
+    )
+
+    if (
+        assigned_user is None
+        or not assigned_user.is_active
+        or assigned_user.role not in {"Staff", "Admin"}
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assigned user must be an active Staff or Admin user.",
+        )
+
+    if request.assigned_department_id is not None:
+        department = get_department_by_id(
+            db=db,
+            department_id=request.assigned_department_id,
+        )
+
+        if department is None or not department.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Assigned department is unavailable.",
+            )
+
+    assignment = get_complaint_assignment(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    if assignment is None:
+        assignment = create_complaint_assignment(
+            db=db,
+            complaint_id=complaint.id,
+            assigned_to_user_id=assigned_user.id,
+            assigned_department_id=request.assigned_department_id,
+            assignment_note=request.assignment_note,
+            assigned_by_user_id=current_user.id,
+        )
+        action = "ASSIGN_COMPLAINT"
+        details = (
+            f"Assigned complaint to user {assigned_user.id} "
+            f"({assigned_user.email})."
+        )
+    else:
+        previous_assigned_user_id = assignment.assigned_to_user_id
+
+        assignment = update_complaint_assignment(
+            db=db,
+            assignment=assignment,
+            assigned_to_user_id=assigned_user.id,
+            assigned_department_id=request.assigned_department_id,
+            assignment_note=request.assignment_note,
+            assigned_by_user_id=current_user.id,
+        )
+        action = "REASSIGN_COMPLAINT"
+        details = (
+            f"Reassigned complaint from user {previous_assigned_user_id} "
+            f"to user {assigned_user.id} ({assigned_user.email})."
+        )
+
+    create_audit_log(
+        db=db,
+        actor_user_id=current_user.id,
+        action=action,
+        entity_type="Complaint",
+        entity_id=str(complaint.id),
+        details=details,
+    )
+
+    return ComplaintAssignmentResponse(
+        complaint_reference=complaint.complaint_reference,
+        assigned_to_user_id=assignment.assigned_to_user_id,
+        assigned_department_id=assignment.assigned_department_id,
+        assignment_note=assignment.assignment_note,
+        assigned_by_user_id=assignment.assigned_by_user_id,
+        assigned_at=assignment.assigned_at,
+        updated_at=assignment.updated_at,
+    )
+
+@app.get(
+    "/admin/complaints/unowned",
+    response_model=UnownedComplaintListResponse,
+)
+def get_unowned_complaints(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Admin")),
+) -> UnownedComplaintListResponse:
+    total, complaints = list_unowned_complaints(
+        db=db,
+        limit=limit,
+        offset=offset,
+    )
+
+    return UnownedComplaintListResponse(
+        total=total,
+        complaints=[
+            UnownedComplaintResponse(
+                complaint_reference=complaint.complaint_reference,
+                complaint_text=complaint.complaint_text,
+                status=complaint.status,
+                created_at=complaint.created_at,
+            )
+            for complaint in complaints
+        ],
+    )
+
+@app.put(
+    "/admin/complaints/{complaint_reference}/ownership",
+    response_model=ComplaintOwnershipResponse,
+)
+def set_complaint_ownership(
+    complaint_reference: str,
+    request: ComplaintOwnershipUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Admin")),
+) -> ComplaintOwnershipResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    submitted_by_user = get_user_by_id(
+        db=db,
+        user_id=request.submitted_by_user_id,
+    )
+
+    if submitted_by_user is None or not submitted_by_user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Selected submitting user is unavailable.",
+        )
+
+    ownership = get_complaint_ownership(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    if ownership is None:
+        ownership = create_complaint_ownership(
+            db=db,
+            complaint_id=complaint.id,
+            submitted_by_user_id=submitted_by_user.id,
+        )
+        action = "ASSIGN_COMPLAINT_OWNERSHIP"
+        details = (
+            f"Assigned complaint ownership to user "
+            f"{submitted_by_user.id} ({submitted_by_user.email})."
+        )
+    else:
+        previous_user_id = ownership.submitted_by_user_id
+
+        ownership = update_complaint_ownership(
+            db=db,
+            ownership=ownership,
+            submitted_by_user_id=submitted_by_user.id,
+        )
+        action = "REASSIGN_COMPLAINT_OWNERSHIP"
+        details = (
+            f"Reassigned complaint ownership from user "
+            f"{previous_user_id} to user {submitted_by_user.id} "
+            f"({submitted_by_user.email})."
+        )
+
+    create_audit_log(
+        db=db,
+        actor_user_id=current_user.id,
+        action=action,
+        entity_type="Complaint",
+        entity_id=str(complaint.id),
+        details=details,
+    )
+
+    return ComplaintOwnershipResponse(
+        complaint_reference=complaint.complaint_reference,
+        submitted_by_user_id=ownership.submitted_by_user_id,
+        created_at=ownership.created_at,
+    )
 
 @app.patch(
     "/complaints/{complaint_reference}/impact-verification",
@@ -876,6 +1129,16 @@ def verify_complaint_impact(
     )
 
     updates = request.model_dump(exclude_unset=True)
+    if request.impact_verification_status not in IMPACT_VERIFICATION_STATUSES:
+        allowed_text = ", ".join(sorted(IMPACT_VERIFICATION_STATUSES))
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Invalid impact_verification_status. "
+                f"Allowed values: {allowed_text}."
+            ),
+        )
 
     if request.impact_verification_status == "Verified":
         if request.verified_affected_population is None:
@@ -958,11 +1221,42 @@ def update_complaint_ml_feedback(
         )
 
     updates = request.model_dump(exclude_unset=True)
+    
 
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide at least one ML feedback field to update.",
+        )
+    
+    if (
+        "final_priority" in updates
+        and updates["final_priority"] is not None
+        and updates["final_priority"] not in FINAL_PRIORITIES
+    ):
+        allowed_text = ", ".join(sorted(FINAL_PRIORITIES))
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Invalid final_priority. "
+                f"Allowed values: {allowed_text}."
+            ),
+        )
+
+    if (
+        "duplicate_decision" in updates
+        and updates["duplicate_decision"] is not None
+        and updates["duplicate_decision"] not in DUPLICATE_DECISIONS
+    ):
+        allowed_text = ", ".join(sorted(DUPLICATE_DECISIONS))
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Invalid duplicate_decision. "
+                f"Allowed values: {allowed_text}."
+            ),
         )
 
     if "final_department_id" in updates:
@@ -1064,6 +1358,46 @@ def update_complaint_ml_feedback(
         reviewed_at=updated_feedback.reviewed_at,
     )
 
+@app.get(
+    "/admin/audit-logs",
+    response_model=AuditLogListResponse,
+)
+def get_audit_logs(
+    entity_type: str | None = Query(default=None),
+    entity_id: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    actor_user_id: int | None = Query(default=None, ge=1),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Admin")),
+) -> AuditLogListResponse:
+    total, logs = list_audit_logs(
+        db=db,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        actor_user_id=actor_user_id,
+        limit=limit,
+        offset=offset,
+    )
+
+    return AuditLogListResponse(
+        total=total,
+        logs=[
+            AuditLogResponse(
+                id=log.id,
+                actor_user_id=log.actor_user_id,
+                action=log.action,
+                entity_type=log.entity_type,
+                entity_id=log.entity_id,
+                details=log.details,
+                created_at=log.created_at,
+            )
+            for log in logs
+        ],
+    )
+
 
 @app.get(
     "/dashboard/summary",
@@ -1071,5 +1405,17 @@ def update_complaint_ml_feedback(
 )
 def dashboard_summary(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DashboardSummaryResponse:
-    return DashboardSummaryResponse(**get_dashboard_summary(db))
+    submitted_by_user_id = (
+        current_user.id
+        if current_user.role == "Student"
+        else None
+    )
+
+    return DashboardSummaryResponse(
+        **get_dashboard_summary(
+            db=db,
+            submitted_by_user_id=submitted_by_user_id,
+        )
+    )
