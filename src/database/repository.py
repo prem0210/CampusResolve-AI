@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import and_, desc, func, or_, select
@@ -22,6 +22,26 @@ from src.database.models import (
     User,
 )
 
+DEFAULT_PAGE_LIMIT = 100
+MAX_PAGE_LIMIT = 200
+
+
+def validate_pagination(
+    limit: int,
+    offset: int,
+) -> tuple[int, int]:
+    if limit < 1:
+        raise ValueError("limit must be at least 1.")
+
+    if limit > MAX_PAGE_LIMIT:
+        raise ValueError(
+            f"limit cannot exceed {MAX_PAGE_LIMIT}."
+        )
+
+    if offset < 0:
+        raise ValueError("offset cannot be negative.")
+
+    return limit, offset
 
 def build_complaint_reference(db: Session) -> str:
     date_prefix = datetime.now().strftime("%Y%m%d")
@@ -120,6 +140,8 @@ def list_complaints(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[Complaint]]:
+    limit, offset = validate_pagination(limit, offset)
+
     filters = []
 
     if status:
@@ -229,7 +251,7 @@ def list_complaints(
             Complaint.id.in_(
                 select(ComplaintEscalation.complaint_id).where(
                     ComplaintEscalation.due_at.is_not(None),
-                    ComplaintEscalation.due_at < datetime.utcnow(),
+                    ComplaintEscalation.due_at < datetime.now(timezone.utc),
                     ComplaintEscalation.escalation_state != "Escalated",
                 )
             )
@@ -258,7 +280,10 @@ def list_complaints(
 
     complaints = list(
         db.scalars(
-            query.order_by(desc(Complaint.created_at))
+            query.order_by(
+                desc(Complaint.created_at),
+                desc(Complaint.id),
+            )
             .offset(offset)
             .limit(limit)
         ).all()
@@ -270,7 +295,6 @@ def list_complaints(
 COMPLAINT_UPDATE_FIELDS = {
     "status",
     "staff_notes",
-    "resolution_notes",
 }
 
 
@@ -329,7 +353,7 @@ def get_dashboard_summary(
     overdue_complaint_filter = Complaint.id.in_(
         select(ComplaintEscalation.complaint_id).where(
             ComplaintEscalation.due_at.is_not(None),
-            ComplaintEscalation.due_at < datetime.utcnow(),
+            ComplaintEscalation.due_at < datetime.now(timezone.utc),
             ComplaintEscalation.escalation_state != "Escalated",
         )
     )
@@ -537,12 +561,27 @@ def create_campus_block(
 
     return campus_block
 
+DEPARTMENT_UPDATE_FIELDS = {
+    "name",
+    "description",
+    "contact_email",
+    "is_active",
+}
+
 
 def update_department(
     db: Session,
     department: Department,
     updates: dict[str, Any],
 ) -> Department:
+    unknown_fields = set(updates) - DEPARTMENT_UPDATE_FIELDS
+
+    if unknown_fields:
+        unknown_text = ", ".join(sorted(unknown_fields))
+        raise ValueError(
+            f"Unsupported department update fields: {unknown_text}"
+        )
+
     for field_name, value in updates.items():
         if field_name == "name" and value is not None:
             value = str(value).strip()
@@ -558,12 +597,28 @@ def update_department(
 
     return department
 
+CAMPUS_BLOCK_UPDATE_FIELDS = {
+    "name",
+    "location_type_id",
+    "capacity",
+    "responsible_department_id",
+    "is_active",
+}
+
 
 def update_campus_block(
     db: Session,
     campus_block: CampusBlock,
     updates: dict[str, Any],
 ) -> CampusBlock:
+    unknown_fields = set(updates) - CAMPUS_BLOCK_UPDATE_FIELDS
+
+    if unknown_fields:
+        unknown_text = ", ".join(sorted(unknown_fields))
+        raise ValueError(
+            f"Unsupported campus-block update fields: {unknown_text}"
+        )
+
     for field_name, value in updates.items():
         if field_name == "name" and value is not None:
             value = str(value).strip()
@@ -608,6 +663,8 @@ def list_audit_logs(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[AuditLog]]:
+    limit, offset = validate_pagination(limit, offset)
+
     filters = []
 
     if entity_type:
@@ -633,12 +690,14 @@ def list_audit_logs(
     total = int(db.scalar(count_query) or 0)
 
     logs = list(
-        db.scalars(
-            query.order_by(desc(AuditLog.created_at))
-            .offset(offset)
-            .limit(limit)
-        ).all()
-    )
+        query.order_by(
+            desc(AuditLog.created_at),
+            desc(AuditLog.id),
+        )
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
 
     return total, logs
 
@@ -677,12 +736,31 @@ def get_or_create_complaint_verification(
     return verification
 
 
+COMPLAINT_VERIFICATION_UPDATE_FIELDS = {
+    "verified_affected_population",
+    "impact_verification_status",
+    "impact_verification_note",
+}
+
+
 def update_complaint_verification(
     db: Session,
     verification: ComplaintVerification,
     updates: dict[str, Any],
     verified_by_user_id: int,
 ) -> ComplaintVerification:
+    unknown_fields = (
+        set(updates)
+        - COMPLAINT_VERIFICATION_UPDATE_FIELDS
+    )
+
+    if unknown_fields:
+        unknown_text = ", ".join(sorted(unknown_fields))
+        raise ValueError(
+            "Unsupported complaint-verification update fields: "
+            f"{unknown_text}"
+        )
+
     for field_name, value in updates.items():
         if field_name == "impact_verification_note":
             value = str(value).strip() if value else None
@@ -690,7 +768,7 @@ def update_complaint_verification(
         setattr(verification, field_name, value)
 
     verification.verified_by_user_id = verified_by_user_id
-    verification.verified_at = datetime.utcnow()
+    verification.verified_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(verification)
@@ -768,12 +846,31 @@ def get_or_create_ml_feedback_record(
     return feedback
 
 
+ML_FEEDBACK_UPDATE_FIELDS = {
+    "final_category",
+    "final_department_id",
+    "final_priority",
+    "actual_resolution_hours",
+    "duplicate_decision",
+    "training_eligible",
+    "exclusion_reason",
+}
+
+
 def update_ml_feedback_record(
     db: Session,
     feedback: MLFeedbackRecord,
     updates: dict[str, Any],
     reviewed_by_user_id: int,
 ) -> MLFeedbackRecord:
+    unknown_fields = set(updates) - ML_FEEDBACK_UPDATE_FIELDS
+
+    if unknown_fields:
+        unknown_text = ", ".join(sorted(unknown_fields))
+        raise ValueError(
+            f"Unsupported ML-feedback update fields: {unknown_text}"
+        )
+
     for field_name, value in updates.items():
         if field_name == "exclusion_reason":
             value = str(value).strip() if value else None
@@ -781,7 +878,7 @@ def update_ml_feedback_record(
         setattr(feedback, field_name, value)
 
     feedback.reviewed_by_user_id = reviewed_by_user_id
-    feedback.reviewed_at = datetime.utcnow()
+    feedback.reviewed_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(feedback)
@@ -838,6 +935,8 @@ def list_unowned_complaints(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[Complaint]]:
+    limit, offset = validate_pagination(limit, offset)
+    
     ownership_exists = (
         select(ComplaintOwnership.id)
         .where(ComplaintOwnership.complaint_id == Complaint.id)
@@ -857,7 +956,10 @@ def list_unowned_complaints(
 
     complaints = list(
         db.scalars(
-            base_query.order_by(desc(Complaint.created_at))
+            base_query.order_by(
+                desc(Complaint.created_at),
+                desc(Complaint.id),
+            )
             .offset(offset)
             .limit(limit)
         ).all()
@@ -927,7 +1029,7 @@ def update_complaint_assignment(
         assignment_note.strip() if assignment_note else None
     )
     assignment.assigned_by_user_id = assigned_by_user_id
-    assignment.assigned_at = datetime.utcnow()
+    assignment.assigned_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(assignment)
@@ -1005,7 +1107,7 @@ def create_complaint_escalation(
         ),
         set_by_user_id=set_by_user_id,
         escalated_at=(
-            datetime.utcnow()
+            datetime.now(timezone.utc)
             if escalation_state == "Escalated"
             else None
         ),
@@ -1035,7 +1137,7 @@ def update_complaint_escalation(
     )
     escalation.set_by_user_id = set_by_user_id
     escalation.escalated_at = (
-        datetime.utcnow()
+        datetime.now(timezone.utc)
         if escalation_state == "Escalated"
         else None
     )
@@ -1059,7 +1161,7 @@ def is_complaint_overdue(
     if escalation.escalation_state == "Escalated":
         return False
 
-    return escalation.due_at < datetime.utcnow()
+    return escalation.due_at < datetime.now(timezone.utc)
 
 
 def can_staff_access_complaint(
@@ -1309,3 +1411,4 @@ def get_ml_monitoring_summary(
         "resolution_time": resolution_time,
         "duplicate_decisions": duplicate_decisions,
     }
+

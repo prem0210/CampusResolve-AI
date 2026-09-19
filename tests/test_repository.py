@@ -8,12 +8,35 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.database.database import Base
-from src.database.models import Complaint
+from src.database.models import (
+    CampusBlock,
+    Complaint,
+    ComplaintAssignment,
+    ComplaintOwnership,
+    ComplaintVerification,
+    Department,
+    LocationType,
+    MLFeedbackRecord,
+    User,
+)
 from src.database.repository import (
     build_complaint_reference,
+    can_staff_access_complaint,
+    create_audit_log,
+    create_complaint_assignment,
+    create_complaint_ownership,
     get_dashboard_summary,
+    get_or_create_complaint_verification,
+    get_or_create_ml_feedback_record,
+    is_complaint_owner,
+    list_audit_logs,
     list_complaints,
+    list_unowned_complaints,
+    update_campus_block,
     update_complaint,
+    update_complaint_verification,
+    update_department,
+    update_ml_feedback_record,
 )
 
 
@@ -71,6 +94,30 @@ def make_complaint(
         complaint.created_at = created_at
 
     return complaint
+
+def make_department(
+    code: str,
+    name: str,
+) -> Department:
+    return Department(
+        code=code,
+        name=name,
+        is_active=True,
+    )
+
+
+def make_staff_user(
+    email: str,
+    department_id: int,
+) -> User:
+    return User(
+        full_name=email.split("@")[0].replace(".", " ").title(),
+        email=email,
+        password_hash="test-password-hash",
+        role="Staff",
+        department_id=department_id,
+        is_active=True,
+    )
 
 
 def test_complaint_reference_increments_by_day(tmp_path: Path) -> None:
@@ -279,6 +326,34 @@ def test_update_complaint_rejects_unknown_field(
     finally:
         db.close()
 
+def test_update_complaint_rejects_non_model_field(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        complaint = make_complaint("CR-TEST-0001")
+        db.add(complaint)
+        db.commit()
+        db.refresh(complaint)
+
+        with pytest.raises(
+            ValueError,
+            match="Unsupported complaint update fields",
+        ):
+            update_complaint(
+                db=db,
+                complaint=complaint,
+                updates={"resolution_notes": "Not a model field."},
+            )
+
+        db.refresh(complaint)
+
+        assert not hasattr(complaint, "resolution_notes")
+
+    finally:
+        db.close()
+
 
 def test_dashboard_summary_reflects_current_statuses(
     tmp_path: Path,
@@ -312,6 +387,570 @@ def test_dashboard_summary_reflects_current_statuses(
         assert summary["total_complaints"] == 3
         assert summary["in_progress_complaints"] == 1
         assert summary["critical_open_complaints"] == 1
+
+    finally:
+        db.close()
+    
+def test_list_complaints_rejects_invalid_pagination(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        with pytest.raises(ValueError, match="limit must be at least 1"):
+            list_complaints(
+                db=db,
+                limit=0,
+                offset=0,
+            )
+
+        with pytest.raises(ValueError, match="offset cannot be negative"):
+            list_complaints(
+                db=db,
+                limit=10,
+                offset=-1,
+            )
+
+    finally:
+        db.close()
+
+
+def test_list_complaints_rejects_excessive_limit(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        with pytest.raises(ValueError, match="limit cannot exceed 200"):
+            list_complaints(
+                db=db,
+                limit=201,
+                offset=0,
+            )
+
+    finally:
+        db.close()
+
+def test_list_complaints_uses_id_as_timestamp_tie_breaker(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        first = make_complaint("CR-TEST-0001")
+        second = make_complaint("CR-TEST-0002")
+
+        db.add_all([first, second])
+        db.commit()
+
+        same_created_at = first.created_at
+
+        second.created_at = same_created_at
+        db.commit()
+
+        total, complaints = list_complaints(
+            db=db,
+            limit=100,
+            offset=0,
+        )
+
+        assert total == 2
+        assert [
+            complaint.complaint_reference
+            for complaint in complaints
+        ] == [
+            "CR-TEST-0002",
+            "CR-TEST-0001",
+        ]
+
+    finally:
+        db.close()
+
+def test_other_paginated_lists_reject_invalid_pagination(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        with pytest.raises(ValueError, match="limit must be at least 1"):
+            list_audit_logs(
+                db=db,
+                limit=0,
+                offset=0,
+            )
+
+        with pytest.raises(ValueError, match="offset cannot be negative"):
+            list_unowned_complaints(
+                db=db,
+                limit=10,
+                offset=-1,
+            )
+
+    finally:
+        db.close()
+
+def test_staff_access_matches_direct_and_department_assignments(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        maintenance = make_department(
+            code="MAINT",
+            name="Maintenance Department",
+        )
+        information_technology = make_department(
+            code="IT",
+            name="Information Technology Department",
+        )
+        db.add_all([maintenance, information_technology])
+        db.commit()
+        db.refresh(maintenance)
+        db.refresh(information_technology)
+
+        maintenance_staff = make_staff_user(
+            email="maintenance.staff@example.com",
+            department_id=maintenance.id,
+        )
+        other_maintenance_staff = make_staff_user(
+            email="maintenance.colleague@example.com",
+            department_id=maintenance.id,
+        )
+        it_staff = make_staff_user(
+            email="it.staff@example.com",
+            department_id=information_technology.id,
+        )
+        admin = User(
+            full_name="Test Administrator",
+            email="admin@example.com",
+            password_hash="test-password-hash",
+            role="Admin",
+            department_id=None,
+            is_active=True,
+        )
+        db.add_all(
+            [
+                maintenance_staff,
+                other_maintenance_staff,
+                it_staff,
+                admin,
+            ]
+        )
+        db.commit()
+        db.refresh(maintenance_staff)
+        db.refresh(other_maintenance_staff)
+        db.refresh(it_staff)
+        db.refresh(admin)
+
+        unassigned = make_complaint("CR-TEST-0001")
+        directly_assigned = make_complaint("CR-TEST-0002")
+        department_assigned = make_complaint("CR-TEST-0003")
+        other_department_assigned = make_complaint("CR-TEST-0004")
+
+        db.add_all(
+            [
+                unassigned,
+                directly_assigned,
+                department_assigned,
+                other_department_assigned,
+            ]
+        )
+        db.commit()
+
+        for complaint in [
+            unassigned,
+            directly_assigned,
+            department_assigned,
+            other_department_assigned,
+        ]:
+            db.refresh(complaint)
+
+        create_complaint_assignment(
+            db=db,
+            complaint_id=directly_assigned.id,
+            assigned_to_user_id=maintenance_staff.id,
+            assigned_department_id=information_technology.id,
+            assignment_note="Direct staff assignment.",
+            assigned_by_user_id=admin.id,
+        )
+
+        create_complaint_assignment(
+            db=db,
+            complaint_id=department_assigned.id,
+            assigned_to_user_id=it_staff.id,
+            assigned_department_id=maintenance.id,
+            assignment_note="Maintenance department assignment.",
+            assigned_by_user_id=admin.id,
+        )
+
+        create_complaint_assignment(
+            db=db,
+            complaint_id=other_department_assigned.id,
+            assigned_to_user_id=it_staff.id,
+            assigned_department_id=information_technology.id,
+            assignment_note="IT department assignment.",
+            assigned_by_user_id=admin.id,
+        )
+
+        assert can_staff_access_complaint(
+            db=db,
+            complaint_id=unassigned.id,
+            staff_user_id=maintenance_staff.id,
+            staff_department_id=maintenance.id,
+        )
+
+        assert can_staff_access_complaint(
+            db=db,
+            complaint_id=directly_assigned.id,
+            staff_user_id=maintenance_staff.id,
+            staff_department_id=maintenance.id,
+        )
+
+        assert can_staff_access_complaint(
+            db=db,
+            complaint_id=department_assigned.id,
+            staff_user_id=maintenance_staff.id,
+            staff_department_id=maintenance.id,
+        )
+
+        assert not can_staff_access_complaint(
+            db=db,
+            complaint_id=other_department_assigned.id,
+            staff_user_id=maintenance_staff.id,
+            staff_department_id=maintenance.id,
+        )
+
+        total, complaints = list_complaints(
+            db=db,
+            staff_user_id=maintenance_staff.id,
+            staff_department_id=maintenance.id,
+            limit=100,
+            offset=0,
+        )
+
+        visible_references = {
+            complaint.complaint_reference
+            for complaint in complaints
+        }
+
+        assert total == 3
+        assert visible_references == {
+            "CR-TEST-0001",
+            "CR-TEST-0002",
+            "CR-TEST-0003",
+        }
+
+    finally:
+        db.close()
+        
+def test_student_can_only_access_owned_complaints(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        first_student = User(
+            full_name="First Student",
+            email="first.student@example.com",
+            password_hash="test-password-hash",
+            role="Student",
+            department_id=None,
+            is_active=True,
+        )
+        second_student = User(
+            full_name="Second Student",
+            email="second.student@example.com",
+            password_hash="test-password-hash",
+            role="Student",
+            department_id=None,
+            is_active=True,
+        )
+        db.add_all([first_student, second_student])
+        db.commit()
+        db.refresh(first_student)
+        db.refresh(second_student)
+
+        first_complaint = make_complaint("CR-TEST-0001")
+        second_complaint = make_complaint("CR-TEST-0002")
+        unowned_complaint = make_complaint("CR-TEST-0003")
+
+        db.add_all(
+            [
+                first_complaint,
+                second_complaint,
+                unowned_complaint,
+            ]
+        )
+        db.commit()
+
+        for complaint in [
+            first_complaint,
+            second_complaint,
+            unowned_complaint,
+        ]:
+            db.refresh(complaint)
+
+        create_complaint_ownership(
+            db=db,
+            complaint_id=first_complaint.id,
+            submitted_by_user_id=first_student.id,
+        )
+        create_complaint_ownership(
+            db=db,
+            complaint_id=second_complaint.id,
+            submitted_by_user_id=second_student.id,
+        )
+
+        assert is_complaint_owner(
+            db=db,
+            complaint_id=first_complaint.id,
+            user_id=first_student.id,
+        )
+
+        assert not is_complaint_owner(
+            db=db,
+            complaint_id=second_complaint.id,
+            user_id=first_student.id,
+        )
+
+        assert not is_complaint_owner(
+            db=db,
+            complaint_id=unowned_complaint.id,
+            user_id=first_student.id,
+        )
+
+        total, complaints = list_complaints(
+            db=db,
+            submitted_by_user_id=first_student.id,
+            limit=100,
+            offset=0,
+        )
+
+        assert total == 1
+        assert [
+            complaint.complaint_reference
+            for complaint in complaints
+        ] == ["CR-TEST-0001"]
+
+    finally:
+        db.close()
+
+def test_rejected_impact_verification_clears_verified_population(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        staff_user = User(
+            full_name="Test Staff",
+            email="staff@example.com",
+            password_hash="test-password-hash",
+            role="Staff",
+            department_id=None,
+            is_active=True,
+        )
+        complaint = make_complaint("CR-TEST-0001")
+
+        db.add_all([staff_user, complaint])
+        db.commit()
+        db.refresh(staff_user)
+        db.refresh(complaint)
+
+        verification = get_or_create_complaint_verification(
+            db=db,
+            complaint=complaint,
+        )
+
+        updated = update_complaint_verification(
+            db=db,
+            verification=verification,
+            updates={
+                "impact_verification_status": "Rejected",
+                "verified_affected_population": None,
+                "impact_verification_note": (
+                    "Reported impact could not be verified."
+                ),
+            },
+            verified_by_user_id=staff_user.id,
+        )
+
+        assert updated.impact_verification_status == "Rejected"
+        assert updated.verified_affected_population is None
+        assert (
+            updated.impact_verification_note
+            == "Reported impact could not be verified."
+        )
+        assert updated.verified_by_user_id == staff_user.id
+        assert updated.verified_at is not None
+
+    finally:
+        db.close()
+
+def test_update_department_rejects_unknown_fields(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        department = make_department(
+            code="MAINT",
+            name="Maintenance Department",
+        )
+        db.add(department)
+        db.commit()
+        db.refresh(department)
+
+        with pytest.raises(
+            ValueError,
+            match="Unsupported department update fields",
+        ):
+            update_department(
+                db=db,
+                department=department,
+                updates={"code": "CHANGED"},
+            )
+
+        db.refresh(department)
+
+        assert department.code == "MAINT"
+
+    finally:
+        db.close()
+
+def test_update_campus_block_rejects_unknown_fields(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        department = make_department(
+            code="MAINT",
+            name="Maintenance Department",
+        )
+        location_type = LocationType(
+            name="Hostel",
+            is_active=True,
+        )
+        db.add_all([department, location_type])
+        db.commit()
+        db.refresh(department)
+        db.refresh(location_type)
+
+        campus_block = CampusBlock(
+            code="HB-A",
+            name="Hostel Block A",
+            location_type_id=location_type.id,
+            capacity=240,
+            responsible_department_id=department.id,
+            is_active=True,
+        )
+        db.add(campus_block)
+        db.commit()
+        db.refresh(campus_block)
+
+        with pytest.raises(
+            ValueError,
+            match="Unsupported campus-block update fields",
+        ):
+            update_campus_block(
+                db=db,
+                campus_block=campus_block,
+                updates={"code": "HB-CHANGED"},
+            )
+
+        db.refresh(campus_block)
+
+        assert campus_block.code == "HB-A"
+
+    finally:
+        db.close()
+
+def test_update_verification_rejects_unknown_fields(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        staff_user = User(
+            full_name="Test Staff",
+            email="staff@example.com",
+            password_hash="test-password-hash",
+            role="Staff",
+            department_id=None,
+            is_active=True,
+        )
+        complaint = make_complaint("CR-TEST-0001")
+
+        db.add_all([staff_user, complaint])
+        db.commit()
+        db.refresh(staff_user)
+        db.refresh(complaint)
+
+        verification = get_or_create_complaint_verification(
+            db=db,
+            complaint=complaint,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Unsupported complaint-verification update fields",
+        ):
+            update_complaint_verification(
+                db=db,
+                verification=verification,
+                updates={"verified_by_user_id": 999},
+                verified_by_user_id=staff_user.id,
+            )
+
+        db.refresh(verification)
+
+        assert verification.verified_by_user_id is None
+        assert verification.verified_at is None
+
+    finally:
+        db.close()
+
+def test_update_ml_feedback_rejects_audit_field_changes(
+    tmp_path: Path,
+) -> None:
+    db = make_test_session(tmp_path)
+
+    try:
+        staff_user = User(
+            full_name="Test Staff",
+            email="staff@example.com",
+            password_hash="test-password-hash",
+            role="Staff",
+            department_id=None,
+            is_active=True,
+        )
+        complaint = make_complaint("CR-TEST-0001")
+
+        db.add_all([staff_user, complaint])
+        db.commit()
+        db.refresh(staff_user)
+        db.refresh(complaint)
+
+        feedback = get_or_create_ml_feedback_record(
+            db=db,
+            complaint=complaint,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="Unsupported ML-feedback update fields",
+        ):
+            update_ml_feedback_record(
+                db=db,
+                feedback=feedback,
+                updates={"reviewed_by_user_id": 999},
+                reviewed_by_user_id=staff_user.id,
+            )
+
+        db.refresh(feedback)
+
+        assert feedback.reviewed_by_user_id is None
+        assert feedback.reviewed_at is None
 
     finally:
         db.close()

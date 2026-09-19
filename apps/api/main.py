@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -801,7 +801,7 @@ def get_complaints(
     assigned_department_id: int | None = Query(default=None, ge=1),
     escalation_state: str | None = Query(default=None),
     due_before: datetime | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500),
+    limit: int = Query(default=100, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -1695,7 +1695,7 @@ def set_complaint_escalation(
             )
 
     if "due_at" in updates and due_at is not None:
-        if due_at <= datetime.utcnow():
+        if due_at <= datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="due_at must be in the future.",
@@ -1784,7 +1784,7 @@ def set_complaint_escalation(
     response_model=UnownedComplaintListResponse,
 )
 def get_unowned_complaints(
-    limit: int = Query(default=100, ge=1, le=500),
+    limit: int = Query(default=100, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("Admin")),
@@ -1979,7 +1979,7 @@ def verify_complaint_impact(
                 ),
             )
 
-    elif request.impact_verification_status == "Disputed":
+    elif request.impact_verification_status == "Rejected":
         updates["verified_affected_population"] = None
 
     try:
@@ -2258,7 +2258,7 @@ def get_audit_logs(
     entity_id: str | None = Query(default=None),
     action: str | None = Query(default=None),
     actor_user_id: int | None = Query(default=None, ge=1),
-    limit: int = Query(default=100, ge=1, le=500),
+    limit: int = Query(default=100, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("Admin")),

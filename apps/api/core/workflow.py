@@ -37,7 +37,7 @@ IMPACT_VERIFICATION_STATUSES: frozenset[
         "Unverified",
         "Verified",
         "Adjusted",
-        "Disputed",
+        "Rejected",
     }
 )
 

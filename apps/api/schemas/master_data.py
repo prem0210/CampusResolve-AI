@@ -16,7 +16,7 @@ ImpactVerificationStatus = Literal[
     "Unverified",
     "Verified",
     "Adjusted",
-    "Disputed",
+    "Rejected",
 ]
 
 
