@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.database.models import (
@@ -267,19 +267,36 @@ def list_complaints(
     return total, complaints
 
 
+COMPLAINT_UPDATE_FIELDS = {
+    "status",
+    "staff_notes",
+    "resolution_notes",
+}
+
+
 def update_complaint(
     db: Session,
     complaint: Complaint,
     updates: dict[str, Any],
 ) -> Complaint:
+    unknown_fields = set(updates) - COMPLAINT_UPDATE_FIELDS
+
+    if unknown_fields:
+        unknown_text = ", ".join(sorted(unknown_fields))
+        raise ValueError(
+            f"Unsupported complaint update fields: {unknown_text}"
+        )
+
     for field_name, value in updates.items():
+        if field_name in {"staff_notes", "resolution_notes"}:
+            value = str(value).strip() if value else None
+
         setattr(complaint, field_name, value)
 
     db.commit()
     db.refresh(complaint)
 
     return complaint
-
 
 def get_dashboard_summary(
     db: Session,
