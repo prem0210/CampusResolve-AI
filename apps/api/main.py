@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,8 +16,21 @@ from apps.api.core.security import (
 from apps.api.core.workflow import (
     ALLOWED_STATUS_TRANSITIONS,
     DUPLICATE_DECISIONS,
+    ESCALATION_STATES,
     FINAL_PRIORITIES,
     IMPACT_VERIFICATION_STATUSES,
+)
+from apps.api.schemas.assignment import (
+    ComplaintAssignmentRequest,
+    ComplaintAssignmentResponse,
+)
+from apps.api.schemas.assignment_history import (
+    ComplaintAssignmentHistoryEventResponse,
+    ComplaintAssignmentHistoryListResponse,
+)
+from apps.api.schemas.audit import (
+    AuditLogListResponse,
+    AuditLogResponse,
 )
 from apps.api.schemas.auth import (
     LoginRequest,
@@ -31,6 +45,10 @@ from apps.api.schemas.complaint import (
     ComplaintStatusUpdateRequest,
     DashboardSummaryResponse,
     StoredComplaintResponse,
+)
+from apps.api.schemas.escalation import (
+    ComplaintEscalationResponse,
+    ComplaintEscalationUpdateRequest,
 )
 from apps.api.schemas.feedback import (
     MLFeedbackResponse,
@@ -53,62 +71,76 @@ from apps.api.schemas.master_data import (
     LocationTypeListResponse,
     LocationTypeResponse,
 )
+from apps.api.schemas.ml_export import MLTrainingExportResponse
+from apps.api.schemas.ml_monitoring import MLMonitoringResponse
 from apps.api.schemas.ownership import (
     ComplaintOwnershipResponse,
     ComplaintOwnershipUpdateRequest,
     UnownedComplaintListResponse,
     UnownedComplaintResponse,
 )
-from apps.api.schemas.audit import (
-    AuditLogListResponse,
-    AuditLogResponse,
+from apps.api.schemas.timeline import (
+    ComplaintTimelineResponse,
+    TimelineAssignmentResponse,
+    TimelineEscalationResponse,
+    TimelineImpactResponse,
+    TimelineStatusEventResponse,
 )
-from apps.api.schemas.assignment import (
-    ComplaintAssignmentRequest,
-    ComplaintAssignmentResponse,
+from apps.api.services.ml_export_service import (
+    export_training_feedback_dataset,
 )
 from apps.api.services.prediction_service import PredictionService
 from src.database.database import get_db, initialise_database
 from src.database.models import Complaint, User
 from src.database.repository import (
+    can_staff_access_complaint,
     count_complaints,
+    create_assignment_history,
     create_audit_log,
     create_campus_block,
     create_complaint,
+    create_complaint_assignment,
+    create_complaint_escalation,
     create_complaint_ownership,
     create_department,
     create_status_history,
     get_campus_block_by_code,
     get_campus_block_by_id,
     get_campus_block_by_name,
+    get_complaint_assignment,
     get_complaint_by_reference,
+    get_complaint_escalation,
+    get_complaint_ownership,
+    get_complaint_verification,
     get_dashboard_summary,
     get_department_by_code,
     get_department_by_id,
     get_department_by_name,
     get_location_type_by_id,
+    get_ml_monitoring_summary,
     get_or_create_complaint_verification,
     get_or_create_ml_feedback_record,
     get_user_by_email,
+    get_user_by_id,
+    is_complaint_overdue,
     is_complaint_owner,
+    list_assignment_history,
+    list_audit_logs,
     list_campus_blocks,
     list_complaints,
     list_departments,
     list_location_types,
     list_status_history,
+    list_training_eligible_records,
+    list_unowned_complaints,
     update_campus_block,
     update_complaint,
+    update_complaint_assignment,
+    update_complaint_escalation,
+    update_complaint_ownership,
     update_complaint_verification,
     update_department,
     update_ml_feedback_record,
-    get_complaint_ownership,
-    get_user_by_id,
-    list_unowned_complaints,
-    update_complaint_ownership,
-    list_audit_logs,
-    create_complaint_assignment,
-    get_complaint_assignment,
-    update_complaint_assignment,
 )
 
 prediction_service = PredictionService()
@@ -133,6 +165,7 @@ def serialize_complaint(complaint: Complaint) -> StoredComplaintResponse:
         prediction_interval_plus_minus_hours=(
             complaint.prediction_interval_plus_minus_hours
         ),
+        duplicate_threshold=complaint.duplicate_threshold,
         possible_duplicate=complaint.possible_duplicate,
         top_duplicate_id=complaint.top_duplicate_id,
         top_duplicate_similarity=complaint.top_duplicate_similarity,
@@ -253,7 +286,7 @@ def can_access_complaint(
     complaint: Complaint,
     current_user: User,
 ) -> bool:
-    if current_user.role in {"Staff", "Admin"}:
+    if current_user.role == "Admin":
         return True
 
     if current_user.role == "Student":
@@ -261,6 +294,14 @@ def can_access_complaint(
             db=db,
             complaint_id=complaint.id,
             user_id=current_user.id,
+        )
+
+    if current_user.role == "Staff":
+        return can_staff_access_complaint(
+            db=db,
+            complaint_id=complaint.id,
+            staff_user_id=current_user.id,
+            staff_department_id=current_user.department_id,
         )
 
     return False
@@ -273,7 +314,14 @@ def can_access_complaint(
 def get_departments(
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
 ) -> DepartmentListResponse:
+    if include_inactive and current_user.role not in {"Staff", "Admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Staff or Admin users can view inactive departments.",
+        )
+
     departments = list_departments(
         db=db,
         active_only=not include_inactive,
@@ -295,7 +343,16 @@ def get_departments(
 def get_location_types(
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
 ) -> LocationTypeListResponse:
+    if include_inactive and current_user.role not in {"Staff", "Admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only Staff or Admin users can view inactive location types."
+            ),
+        )
+
     location_types = list_location_types(
         db=db,
         active_only=not include_inactive,
@@ -318,7 +375,16 @@ def get_campus_blocks(
     location_type_id: int | None = Query(default=None, ge=1),
     include_inactive: bool = Query(default=False),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
 ) -> CampusBlockListResponse:
+    if include_inactive and current_user.role not in {"Staff", "Admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only Staff or Admin users can view inactive campus blocks."
+            ),
+        )
+
     campus_blocks = list_campus_blocks(
         db=db,
         location_type_id=location_type_id,
@@ -375,11 +441,17 @@ def add_department(
         )
 
         return DepartmentResponse.model_validate(department)
+
+    except HTTPException:
+        raise
+
     except Exception as error:
         db.rollback()
+        print(f"Department creation failed: {error}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not create department: {str(error)}",
+            detail="Could not create department.",
         ) from error
 
 
@@ -446,11 +518,17 @@ def edit_department(
         )
 
         return DepartmentResponse.model_validate(updated_department)
+
+    except HTTPException:
+        raise
+
     except Exception as error:
         db.rollback()
+        print(f"Department update failed: {error}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not update department: {str(error)}",
+            detail="Could not update department.",
         ) from error
 
 
@@ -499,7 +577,9 @@ def add_campus_block(
         if department is None or not department.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Selected responsible department is unavailable.",
+                detail=(
+                    "Selected responsible department is unavailable."
+                ),
             )
 
     try:
@@ -521,11 +601,17 @@ def add_campus_block(
         )
 
         return CampusBlockResponse.model_validate(campus_block)
+
+    except HTTPException:
+        raise
+
     except Exception as error:
         db.rollback()
+        print(f"Campus-block creation failed: {error}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not create campus block: {str(error)}",
+            detail="Could not create campus block.",
         ) from error
 
 
@@ -579,7 +665,9 @@ def edit_campus_block(
         if department is None or not department.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Selected responsible department is unavailable.",
+                detail=(
+                    "Selected responsible department is unavailable."
+                ),
             )
 
     try:
@@ -604,11 +692,17 @@ def edit_campus_block(
         )
 
         return CampusBlockResponse.model_validate(updated_block)
+
+    except HTTPException:
+        raise
+
     except Exception as error:
         db.rollback()
+        print(f"Campus-block update failed: {error}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not update campus block: {str(error)}",
+            detail="Could not update campus block.",
         ) from error
 
 
@@ -622,10 +716,16 @@ def predict_complaint(
     try:
         result = prediction_service.predict(request.model_dump())
         return ComplaintPredictionResponse(**result)
+
+    except HTTPException:
+        raise
+
     except Exception as error:
+        print(f"Complaint prediction failed: {error}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prediction failed: {str(error)}",
+            detail="Prediction could not be completed.",
         ) from error
 
 
@@ -673,13 +773,18 @@ def create_and_save_complaint(
             status=complaint.status,
             created_at=complaint.created_at,
         )
+
+    except HTTPException:
+        raise
+
     except Exception as error:
         db.rollback()
+        print(f"Complaint creation failed: {error}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Complaint creation failed: {str(error)}",
+            detail="Complaint could not be created.",
         ) from error
-
 
 @app.get(
     "/complaints",
@@ -690,14 +795,104 @@ def get_complaints(
     priority: str | None = Query(default=None),
     department: str | None = Query(default=None),
     category: str | None = Query(default=None),
+    assigned_to_me: bool = Query(default=False),
+    assigned_to_user_id: int | None = Query(default=None, ge=1),
+    assignment_state: str | None = Query(default=None),
+    assigned_department_id: int | None = Query(default=None, ge=1),
+    escalation_state: str | None = Query(default=None),
+    due_before: datetime | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ComplaintQueueResponse:
+    role = current_user.role.strip()
+
+    if assignment_state not in {None, "Assigned", "Unassigned"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "assignment_state must be either Assigned or Unassigned."
+            ),
+        )
+
+    if escalation_state not in {
+        None,
+        "OnTrack",
+        "Escalated",
+        "Overdue",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "escalation_state must be one of: "
+                "OnTrack, Escalated, Overdue."
+            ),
+        )
+
+    staff_queue_filters_requested = any(
+        [
+            assigned_to_me,
+            assigned_to_user_id is not None,
+            assignment_state is not None,
+            assigned_department_id is not None,
+            escalation_state is not None,
+            due_before is not None,
+        ]
+    )
+
+    if role == "Student" and staff_queue_filters_requested:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Assignment and escalation filters are available only "
+                "to Staff and Admin."
+            ),
+        )
+
+    if role == "Staff":
+        if (
+            assigned_to_user_id is not None
+            and assigned_to_user_id != current_user.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Staff users can filter assignments only for "
+                    "their own account."
+                ),
+            )
+
+        if (
+            assigned_department_id is not None
+            and assigned_department_id != current_user.department_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Staff users can filter assignments only for "
+                    "their own department."
+                ),
+            )
+
+    if assigned_to_me:
+        assigned_to_user_id = current_user.id
+
     submitted_by_user_id = (
         current_user.id
-        if current_user.role == "Student"
+        if role == "Student"
+        else None
+    )
+
+    staff_user_id = (
+        current_user.id
+        if role == "Staff"
+        else None
+    )
+
+    staff_department_id = (
+        current_user.department_id
+        if role == "Staff"
         else None
     )
 
@@ -708,6 +903,13 @@ def get_complaints(
         department=department,
         category=category,
         submitted_by_user_id=submitted_by_user_id,
+        staff_user_id=staff_user_id,
+        staff_department_id=staff_department_id,
+        assigned_to_user_id=assigned_to_user_id,
+        assignment_state=assignment_state,
+        assigned_department_id=assigned_department_id,
+        escalation_state=escalation_state,
+        due_before=due_before,
         limit=limit,
         offset=offset,
     )
@@ -769,6 +971,16 @@ def update_stored_complaint(
             detail=f"Complaint not found: {complaint_reference}",
         )
 
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
     updates = request.model_dump(exclude_unset=True)
 
     if not updates:
@@ -801,49 +1013,69 @@ def update_stored_complaint(
                 detail=(
                     f"Invalid status transition from {previous_status} "
                     f"to {requested_status}. "
-                    f"Allowed next status values: {allowed_text or 'none'}."
+                    f"Allowed next status values: "
+                    f"{allowed_text or 'none'}."
                 ),
             )
 
-    updated_complaint = update_complaint(
-        db=db,
-        complaint=complaint,
-        updates=updates,
-    )
-
-    if requested_status is not None and requested_status != previous_status:
-        create_status_history(
+    try:
+        updated_complaint = update_complaint(
             db=db,
-            complaint_id=updated_complaint.id,
-            old_status=previous_status,
-            new_status=requested_status,
-            changed_by_user_id=current_user.id,
-            note=note_for_history,
+            complaint=complaint,
+            updates=updates,
         )
 
-        create_audit_log(
-            db=db,
-            actor_user_id=current_user.id,
-            action="UPDATE_COMPLAINT_STATUS",
-            entity_type="Complaint",
-            entity_id=str(updated_complaint.id),
-            details=(
-                f"Status changed from {previous_status} "
-                f"to {requested_status}"
-            ),
-        )
-    elif "staff_notes" in updates:
-        create_audit_log(
-            db=db,
-            actor_user_id=current_user.id,
-            action="UPDATE_COMPLAINT_NOTES",
-            entity_type="Complaint",
-            entity_id=str(updated_complaint.id),
-            details="Staff notes updated without a status change.",
+        if (
+            requested_status is not None
+            and requested_status != previous_status
+        ):
+            create_status_history(
+                db=db,
+                complaint_id=updated_complaint.id,
+                old_status=previous_status,
+                new_status=requested_status,
+                changed_by_user_id=current_user.id,
+                note=note_for_history,
+            )
+
+            create_audit_log(
+                db=db,
+                actor_user_id=current_user.id,
+                action="UPDATE_COMPLAINT_STATUS",
+                entity_type="Complaint",
+                entity_id=str(updated_complaint.id),
+                details=(
+                    f"Status changed from {previous_status} "
+                    f"to {requested_status}"
+                ),
+            )
+
+        elif "staff_notes" in updates:
+            create_audit_log(
+                db=db,
+                actor_user_id=current_user.id,
+                action="UPDATE_COMPLAINT_NOTES",
+                entity_type="Complaint",
+                entity_id=str(updated_complaint.id),
+                details="Staff notes updated without a status change.",
+            )
+
+        return serialize_complaint(updated_complaint)
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(
+            f"Complaint update failed for "
+            f"{complaint_reference}: {error}"
         )
 
-    return serialize_complaint(updated_complaint)
-
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Complaint could not be updated.",
+        ) from error
 
 @app.get(
     "/complaints/{complaint_reference}/status-history",
@@ -893,6 +1125,229 @@ def get_complaint_status_history(
         ],
     )
 
+
+@app.get(
+    "/complaints/{complaint_reference}/timeline",
+    response_model=ComplaintTimelineResponse,
+)
+def get_complaint_timeline(
+    complaint_reference: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ComplaintTimelineResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
+    assignment = get_complaint_assignment(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    verification = get_complaint_verification(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    escalation = get_complaint_escalation(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    history = list_status_history(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    timeline_assignment = None
+
+    if assignment is not None:
+        timeline_assignment = TimelineAssignmentResponse(
+            assigned_to_user_id=assignment.assigned_to_user_id,
+            assigned_department_id=assignment.assigned_department_id,
+            assignment_note=assignment.assignment_note,
+            assigned_at=assignment.assigned_at,
+        )
+
+    timeline_impact = None
+
+    if verification is not None:
+        timeline_impact = TimelineImpactResponse(
+            reported_affected_population=(
+                verification.reported_affected_population
+            ),
+            verified_affected_population=(
+                verification.verified_affected_population
+            ),
+            impact_verification_status=(
+                verification.impact_verification_status
+            ),
+            impact_verification_note=(
+                verification.impact_verification_note
+            ),
+            verified_at=verification.verified_at,
+        )
+
+    timeline_escalation = None
+
+    if escalation is not None:
+        timeline_escalation = TimelineEscalationResponse(
+            due_at=escalation.due_at,
+            escalation_state=escalation.escalation_state,
+            is_overdue=is_complaint_overdue(
+                complaint=complaint,
+                escalation=escalation,
+            ),
+            escalated_at=escalation.escalated_at,
+            escalation_reason=escalation.escalation_reason,
+        )
+
+    return ComplaintTimelineResponse(
+        complaint_reference=complaint.complaint_reference,
+        complaint_text=complaint.complaint_text,
+        location_type=complaint.location_type,
+        specific_location=complaint.specific_location,
+        status=complaint.status,
+        created_at=complaint.created_at,
+        updated_at=complaint.updated_at,
+        assignment=timeline_assignment,
+        impact=timeline_impact,
+        escalation=timeline_escalation,
+        status_history=[
+            TimelineStatusEventResponse(
+                old_status=item.old_status,
+                new_status=item.new_status,
+                note=item.note,
+                changed_at=item.changed_at,
+            )
+            for item in history
+        ],
+    )
+
+
+@app.get(
+    "/complaints/{complaint_reference}/assignment-history",
+    response_model=ComplaintAssignmentHistoryListResponse,
+)
+def get_assignment_history(
+    complaint_reference: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ComplaintAssignmentHistoryListResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
+    history = list_assignment_history(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    return ComplaintAssignmentHistoryListResponse(
+        complaint_reference=complaint.complaint_reference,
+        total=len(history),
+        history=[
+            ComplaintAssignmentHistoryEventResponse(
+                previous_assigned_to_user_id=(
+                    item.previous_assigned_to_user_id
+                ),
+                new_assigned_to_user_id=item.new_assigned_to_user_id,
+                previous_department_id=item.previous_department_id,
+                new_department_id=item.new_department_id,
+                note=item.note,
+                changed_at=item.changed_at,
+            )
+            for item in history
+        ],
+    )
+
+
+@app.get(
+    "/complaints/{complaint_reference}/assignment",
+    response_model=ComplaintAssignmentResponse,
+)
+def get_assignment(
+    complaint_reference: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ComplaintAssignmentResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
+    assignment = get_complaint_assignment(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No staff assignment exists for this complaint.",
+        )
+
+    return ComplaintAssignmentResponse(
+        complaint_reference=complaint.complaint_reference,
+        assigned_to_user_id=assignment.assigned_to_user_id,
+        assigned_department_id=assignment.assigned_department_id,
+        assignment_note=assignment.assignment_note,
+        assigned_by_user_id=assignment.assigned_by_user_id,
+        assigned_at=assignment.assigned_at,
+        updated_at=assignment.updated_at,
+    )
+
+
 @app.put(
     "/complaints/{complaint_reference}/assignment",
     response_model=ComplaintAssignmentResponse,
@@ -912,6 +1367,16 @@ def set_assignment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
         )
 
     assigned_user = get_user_by_id(
@@ -941,60 +1406,378 @@ def set_assignment(
                 detail="Assigned department is unavailable.",
             )
 
-    assignment = get_complaint_assignment(
+    if current_user.role == "Staff":
+        if request.assigned_to_user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Staff users can assign a complaint only to "
+                    "their own account."
+                ),
+            )
+
+        if current_user.department_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Staff users must belong to a department before "
+                    "they can assign complaints."
+                ),
+            )
+
+        if request.assigned_department_id != current_user.department_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Staff users can assign complaints only to "
+                    "their own department."
+                ),
+            )
+
+    try:
+        assignment = get_complaint_assignment(
+            db=db,
+            complaint_id=complaint.id,
+        )
+
+        if assignment is None:
+            assignment = create_complaint_assignment(
+                db=db,
+                complaint_id=complaint.id,
+                assigned_to_user_id=assigned_user.id,
+                assigned_department_id=request.assigned_department_id,
+                assignment_note=request.assignment_note,
+                assigned_by_user_id=current_user.id,
+            )
+
+            create_assignment_history(
+                db=db,
+                complaint_id=complaint.id,
+                previous_assigned_to_user_id=None,
+                new_assigned_to_user_id=assignment.assigned_to_user_id,
+                previous_department_id=None,
+                new_department_id=assignment.assigned_department_id,
+                changed_by_user_id=current_user.id,
+                note=assignment.assignment_note,
+            )
+
+            action = "ASSIGN_COMPLAINT"
+            details = (
+                f"Assigned complaint to user {assigned_user.id} "
+                f"({assigned_user.email})."
+            )
+
+        else:
+            previous_assigned_user_id = assignment.assigned_to_user_id
+            previous_department_id = assignment.assigned_department_id
+
+            assignment = update_complaint_assignment(
+                db=db,
+                assignment=assignment,
+                assigned_to_user_id=assigned_user.id,
+                assigned_department_id=request.assigned_department_id,
+                assignment_note=request.assignment_note,
+                assigned_by_user_id=current_user.id,
+            )
+
+            create_assignment_history(
+                db=db,
+                complaint_id=complaint.id,
+                previous_assigned_to_user_id=previous_assigned_user_id,
+                new_assigned_to_user_id=assignment.assigned_to_user_id,
+                previous_department_id=previous_department_id,
+                new_department_id=assignment.assigned_department_id,
+                changed_by_user_id=current_user.id,
+                note=assignment.assignment_note,
+            )
+
+            action = "REASSIGN_COMPLAINT"
+            details = (
+                f"Reassigned complaint from user "
+                f"{previous_assigned_user_id} to user "
+                f"{assigned_user.id} ({assigned_user.email})."
+            )
+
+        create_audit_log(
+            db=db,
+            actor_user_id=current_user.id,
+            action=action,
+            entity_type="Complaint",
+            entity_id=str(complaint.id),
+            details=details,
+        )
+
+        return ComplaintAssignmentResponse(
+            complaint_reference=complaint.complaint_reference,
+            assigned_to_user_id=assignment.assigned_to_user_id,
+            assigned_department_id=assignment.assigned_department_id,
+            assignment_note=assignment.assignment_note,
+            assigned_by_user_id=assignment.assigned_by_user_id,
+            assigned_at=assignment.assigned_at,
+            updated_at=assignment.updated_at,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(
+            f"Assignment update failed for "
+            f"{complaint_reference}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Complaint assignment could not be updated.",
+        ) from error
+
+@app.get(
+    "/complaints/{complaint_reference}/escalation",
+    response_model=ComplaintEscalationResponse,
+)
+def get_complaint_escalation_status(
+    complaint_reference: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ComplaintEscalationResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
+    escalation = get_complaint_escalation(
         db=db,
         complaint_id=complaint.id,
     )
 
-    if assignment is None:
-        assignment = create_complaint_assignment(
-            db=db,
-            complaint_id=complaint.id,
-            assigned_to_user_id=assigned_user.id,
-            assigned_department_id=request.assigned_department_id,
-            assignment_note=request.assignment_note,
-            assigned_by_user_id=current_user.id,
-        )
-        action = "ASSIGN_COMPLAINT"
-        details = (
-            f"Assigned complaint to user {assigned_user.id} "
-            f"({assigned_user.email})."
-        )
-    else:
-        previous_assigned_user_id = assignment.assigned_to_user_id
-
-        assignment = update_complaint_assignment(
-            db=db,
-            assignment=assignment,
-            assigned_to_user_id=assigned_user.id,
-            assigned_department_id=request.assigned_department_id,
-            assignment_note=request.assignment_note,
-            assigned_by_user_id=current_user.id,
-        )
-        action = "REASSIGN_COMPLAINT"
-        details = (
-            f"Reassigned complaint from user {previous_assigned_user_id} "
-            f"to user {assigned_user.id} ({assigned_user.email})."
+    if escalation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No escalation record exists for this complaint.",
         )
 
-    create_audit_log(
-        db=db,
-        actor_user_id=current_user.id,
-        action=action,
-        entity_type="Complaint",
-        entity_id=str(complaint.id),
-        details=details,
-    )
-
-    return ComplaintAssignmentResponse(
+    return ComplaintEscalationResponse(
         complaint_reference=complaint.complaint_reference,
-        assigned_to_user_id=assignment.assigned_to_user_id,
-        assigned_department_id=assignment.assigned_department_id,
-        assignment_note=assignment.assignment_note,
-        assigned_by_user_id=assignment.assigned_by_user_id,
-        assigned_at=assignment.assigned_at,
-        updated_at=assignment.updated_at,
+        due_at=escalation.due_at,
+        escalation_state=escalation.escalation_state,
+        is_overdue=is_complaint_overdue(
+            complaint=complaint,
+            escalation=escalation,
+        ),
+        escalated_at=escalation.escalated_at,
+        escalation_reason=escalation.escalation_reason,
+        set_by_user_id=escalation.set_by_user_id,
+        created_at=escalation.created_at,
+        updated_at=escalation.updated_at,
     )
+
+
+@app.put(
+    "/complaints/{complaint_reference}/escalation",
+    response_model=ComplaintEscalationResponse,
+)
+def set_complaint_escalation(
+    complaint_reference: str,
+    request: ComplaintEscalationUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Staff", "Admin")),
+) -> ComplaintEscalationResponse:
+    complaint = get_complaint_by_reference(
+        db=db,
+        complaint_reference=complaint_reference,
+    )
+
+    if complaint is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Complaint not found: {complaint_reference}",
+        )
+
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
+    if complaint.status in {"Resolved", "Closed"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Escalation cannot be created or updated for a "
+                "Resolved or Closed complaint."
+            ),
+        )
+
+    updates = request.model_dump(exclude_unset=True)
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide at least one escalation field to update.",
+        )
+
+    escalation = get_complaint_escalation(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    current_due_at = escalation.due_at if escalation else None
+    current_state = (
+        escalation.escalation_state
+        if escalation is not None
+        else "OnTrack"
+    )
+    current_reason = (
+        escalation.escalation_reason
+        if escalation is not None
+        else None
+    )
+
+    due_at = updates.get("due_at", current_due_at)
+    escalation_state = updates.get(
+        "escalation_state",
+        current_state,
+    )
+    escalation_reason = updates.get(
+        "escalation_reason",
+        current_reason,
+    )
+
+    if escalation_state not in ESCALATION_STATES:
+        allowed_text = ", ".join(sorted(ESCALATION_STATES))
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Invalid escalation_state. "
+                f"Allowed values: {allowed_text}."
+            ),
+        )
+
+    if escalation_state == "Escalated":
+        if due_at is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "due_at is required when escalation_state is "
+                    "Escalated."
+                ),
+            )
+
+        if not escalation_reason:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "escalation_reason is required when "
+                    "escalation_state is Escalated."
+                ),
+            )
+
+    if "due_at" in updates and due_at is not None:
+        if due_at <= datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="due_at must be in the future.",
+            )
+
+    if (
+        "due_at" in updates
+        and due_at is None
+        and escalation_state == "Escalated"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "An Escalated complaint must have a due_at value."
+            ),
+        )
+
+    try:
+        if escalation is None:
+            escalation = create_complaint_escalation(
+                db=db,
+                complaint_id=complaint.id,
+                due_at=due_at,
+                escalation_state=escalation_state,
+                escalation_reason=escalation_reason,
+                set_by_user_id=current_user.id,
+            )
+            action = "CREATE_COMPLAINT_ESCALATION"
+
+        else:
+            escalation = update_complaint_escalation(
+                db=db,
+                escalation=escalation,
+                due_at=due_at,
+                escalation_state=escalation_state,
+                escalation_reason=escalation_reason,
+                set_by_user_id=current_user.id,
+            )
+            action = "UPDATE_COMPLAINT_ESCALATION"
+
+        create_audit_log(
+            db=db,
+            actor_user_id=current_user.id,
+            action=action,
+            entity_type="Complaint",
+            entity_id=str(complaint.id),
+            details=(
+                f"Escalation state={escalation.escalation_state}; "
+                f"due_at={escalation.due_at}; "
+                f"is_overdue={is_complaint_overdue(complaint, escalation)}"
+            ),
+        )
+
+        return ComplaintEscalationResponse(
+            complaint_reference=complaint.complaint_reference,
+            due_at=escalation.due_at,
+            escalation_state=escalation.escalation_state,
+            is_overdue=is_complaint_overdue(
+                complaint=complaint,
+                escalation=escalation,
+            ),
+            escalated_at=escalation.escalated_at,
+            escalation_reason=escalation.escalation_reason,
+            set_by_user_id=escalation.set_by_user_id,
+            created_at=escalation.created_at,
+            updated_at=escalation.updated_at,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(
+            f"Escalation update failed for "
+            f"{complaint_reference}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Complaint escalation could not be updated.",
+        ) from error
 
 @app.get(
     "/admin/complaints/unowned",
@@ -1024,6 +1807,7 @@ def get_unowned_complaints(
             for complaint in complaints
         ],
     )
+
 
 @app.put(
     "/admin/complaints/{complaint_reference}/ownership",
@@ -1057,51 +1841,82 @@ def set_complaint_ownership(
             detail="Selected submitting user is unavailable.",
         )
 
-    ownership = get_complaint_ownership(
-        db=db,
-        complaint_id=complaint.id,
-    )
+    if submitted_by_user.role != "Student":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Complaint ownership can be assigned only to a Student.",
+        )
 
-    if ownership is None:
-        ownership = create_complaint_ownership(
+    try:
+        ownership = get_complaint_ownership(
             db=db,
             complaint_id=complaint.id,
-            submitted_by_user_id=submitted_by_user.id,
         )
-        action = "ASSIGN_COMPLAINT_OWNERSHIP"
-        details = (
-            f"Assigned complaint ownership to user "
-            f"{submitted_by_user.id} ({submitted_by_user.email})."
-        )
-    else:
-        previous_user_id = ownership.submitted_by_user_id
 
-        ownership = update_complaint_ownership(
+        if ownership is None:
+            ownership = create_complaint_ownership(
+                db=db,
+                complaint_id=complaint.id,
+                submitted_by_user_id=submitted_by_user.id,
+            )
+
+            action = "ASSIGN_COMPLAINT_OWNERSHIP"
+            details = (
+                f"Assigned complaint ownership to student "
+                f"{submitted_by_user.id} ({submitted_by_user.email})."
+            )
+
+        else:
+            previous_user_id = ownership.submitted_by_user_id
+
+            if previous_user_id == submitted_by_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Complaint ownership is already assigned to this user.",
+                )
+
+            ownership = update_complaint_ownership(
+                db=db,
+                ownership=ownership,
+                submitted_by_user_id=submitted_by_user.id,
+            )
+
+            action = "REASSIGN_COMPLAINT_OWNERSHIP"
+            details = (
+                f"Reassigned complaint ownership from user "
+                f"{previous_user_id} to student "
+                f"{submitted_by_user.id} ({submitted_by_user.email})."
+            )
+
+        create_audit_log(
             db=db,
-            ownership=ownership,
-            submitted_by_user_id=submitted_by_user.id,
-        )
-        action = "REASSIGN_COMPLAINT_OWNERSHIP"
-        details = (
-            f"Reassigned complaint ownership from user "
-            f"{previous_user_id} to user {submitted_by_user.id} "
-            f"({submitted_by_user.email})."
+            actor_user_id=current_user.id,
+            action=action,
+            entity_type="Complaint",
+            entity_id=str(complaint.id),
+            details=details,
         )
 
-    create_audit_log(
-        db=db,
-        actor_user_id=current_user.id,
-        action=action,
-        entity_type="Complaint",
-        entity_id=str(complaint.id),
-        details=details,
-    )
+        return ComplaintOwnershipResponse(
+            complaint_reference=complaint.complaint_reference,
+            submitted_by_user_id=ownership.submitted_by_user_id,
+            created_at=ownership.created_at,
+        )
 
-    return ComplaintOwnershipResponse(
-        complaint_reference=complaint.complaint_reference,
-        submitted_by_user_id=ownership.submitted_by_user_id,
-        created_at=ownership.created_at,
-    )
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(
+            f"Complaint ownership update failed for "
+            f"{complaint_reference}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Complaint ownership could not be updated.",
+        ) from error
 
 @app.patch(
     "/complaints/{complaint_reference}/impact-verification",
@@ -1123,14 +1938,20 @@ def verify_complaint_impact(
             detail=f"Complaint not found: {complaint_reference}",
         )
 
-    verification = get_or_create_complaint_verification(
+    if not can_access_complaint(
         db=db,
         complaint=complaint,
-    )
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
 
-    updates = request.model_dump(exclude_unset=True)
     if request.impact_verification_status not in IMPACT_VERIFICATION_STATUSES:
-        allowed_text = ", ".join(sorted(IMPACT_VERIFICATION_STATUSES))
+        allowed_text = ", ".join(
+            sorted(IMPACT_VERIFICATION_STATUSES)
+        )
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1140,13 +1961,15 @@ def verify_complaint_impact(
             ),
         )
 
+    updates = request.model_dump(exclude_unset=True)
+
     if request.impact_verification_status == "Verified":
         if request.verified_affected_population is None:
             updates["verified_affected_population"] = (
-                verification.reported_affected_population
+                complaint.affected_population
             )
 
-    if request.impact_verification_status == "Adjusted":
+    elif request.impact_verification_status == "Adjusted":
         if request.verified_affected_population is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1156,47 +1979,70 @@ def verify_complaint_impact(
                 ),
             )
 
-    if request.impact_verification_status == "Disputed":
+    elif request.impact_verification_status == "Disputed":
         updates["verified_affected_population"] = None
 
-    updated_verification = update_complaint_verification(
-        db=db,
-        verification=verification,
-        updates=updates,
-        verified_by_user_id=current_user.id,
-    )
+    try:
+        verification = get_or_create_complaint_verification(
+            db=db,
+            complaint=complaint,
+        )
 
-    create_audit_log(
-        db=db,
-        actor_user_id=current_user.id,
-        action="VERIFY_COMPLAINT_IMPACT",
-        entity_type="Complaint",
-        entity_id=str(complaint.id),
-        details=(
-            f"Impact verification set to "
-            f"{updated_verification.impact_verification_status}; "
-            f"reported={updated_verification.reported_affected_population}; "
-            f"verified={updated_verification.verified_affected_population}"
-        ),
-    )
+        updated_verification = update_complaint_verification(
+            db=db,
+            verification=verification,
+            updates=updates,
+            verified_by_user_id=current_user.id,
+        )
 
-    return {
-        "complaint_reference": complaint.complaint_reference,
-        "reported_affected_population": (
-            updated_verification.reported_affected_population
-        ),
-        "verified_affected_population": (
-            updated_verification.verified_affected_population
-        ),
-        "impact_verification_status": (
-            updated_verification.impact_verification_status
-        ),
-        "impact_verification_note": (
-            updated_verification.impact_verification_note
-        ),
-        "verified_by_user_id": updated_verification.verified_by_user_id,
-        "verified_at": updated_verification.verified_at,
-    }
+        create_audit_log(
+            db=db,
+            actor_user_id=current_user.id,
+            action="VERIFY_COMPLAINT_IMPACT",
+            entity_type="Complaint",
+            entity_id=str(complaint.id),
+            details=(
+                f"Impact verification set to "
+                f"{updated_verification.impact_verification_status}; "
+                f"reported={updated_verification.reported_affected_population}; "
+                f"verified={updated_verification.verified_affected_population}"
+            ),
+        )
+
+        return {
+            "complaint_reference": complaint.complaint_reference,
+            "reported_affected_population": (
+                updated_verification.reported_affected_population
+            ),
+            "verified_affected_population": (
+                updated_verification.verified_affected_population
+            ),
+            "impact_verification_status": (
+                updated_verification.impact_verification_status
+            ),
+            "impact_verification_note": (
+                updated_verification.impact_verification_note
+            ),
+            "verified_by_user_id": (
+                updated_verification.verified_by_user_id
+            ),
+            "verified_at": updated_verification.verified_at,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(
+            f"Impact verification failed for "
+            f"{complaint_reference}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Complaint impact verification could not be updated.",
+        ) from error
 
 
 @app.patch(
@@ -1220,15 +2066,24 @@ def update_complaint_ml_feedback(
             detail=f"Complaint not found: {complaint_reference}",
         )
 
+    if not can_access_complaint(
+        db=db,
+        complaint=complaint,
+        current_user=current_user,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this complaint.",
+        )
+
     updates = request.model_dump(exclude_unset=True)
-    
 
     if not updates:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide at least one ML feedback field to update.",
         )
-    
+
     if (
         "final_priority" in updates
         and updates["final_priority"] is not None
@@ -1274,89 +2129,125 @@ def update_complaint_ml_feedback(
                     detail="Selected final department is unavailable.",
                 )
 
+    if (
+        updates.get("training_eligible") is True
+        and current_user.role != "Admin"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only Admin users can mark feedback records "
+                "as training eligible."
+            ),
+        )
+
     if updates.get("training_eligible") is True:
         if complaint.status not in {"Resolved", "Closed"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    "Complaint must be Resolved or Closed before it can be "
-                    "marked training eligible."
+                    "Complaint must be Resolved or Closed before it can "
+                    "be marked training eligible."
                 ),
             )
 
-        required_fields = [
-            "final_category",
-            "final_department_id",
-            "final_priority",
-            "actual_resolution_hours",
-            "duplicate_decision",
-        ]
-
-        existing_feedback = get_or_create_ml_feedback_record(
+    try:
+        feedback = get_or_create_ml_feedback_record(
             db=db,
             complaint=complaint,
         )
 
-        combined_values = {
-            field_name: updates.get(
-                field_name,
-                getattr(existing_feedback, field_name),
-            )
-            for field_name in required_fields
-        }
+        if updates.get("training_eligible") is True:
+            required_fields = [
+                "final_category",
+                "final_department_id",
+                "final_priority",
+                "actual_resolution_hours",
+                "duplicate_decision",
+            ]
 
-        missing_fields = [
-            field_name
-            for field_name, value in combined_values.items()
-            if value is None
-        ]
+            combined_values = {
+                field_name: updates.get(
+                    field_name,
+                    getattr(feedback, field_name),
+                )
+                for field_name in required_fields
+            }
 
-        if missing_fields:
-            missing_text = ", ".join(missing_fields)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Cannot mark training eligible. Missing verified fields: "
-                    f"{missing_text}"
-                ),
-            )
+            missing_fields = [
+                field_name
+                for field_name, value in combined_values.items()
+                if value is None
+            ]
 
-    feedback = get_or_create_ml_feedback_record(
-        db=db,
-        complaint=complaint,
-    )
+            if missing_fields:
+                missing_text = ", ".join(missing_fields)
 
-    updated_feedback = update_ml_feedback_record(
-        db=db,
-        feedback=feedback,
-        updates=updates,
-        reviewed_by_user_id=current_user.id,
-    )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Cannot mark training eligible. "
+                        f"Missing verified fields: {missing_text}"
+                    ),
+                )
 
-    create_audit_log(
-        db=db,
-        actor_user_id=current_user.id,
-        action="UPDATE_ML_FEEDBACK",
-        entity_type="Complaint",
-        entity_id=str(complaint.id),
-        details=(
-            f"ML feedback updated; "
-            f"training_eligible={updated_feedback.training_eligible}"
-        ),
-    )
+            if combined_values["duplicate_decision"] == "NotReviewed":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Cannot mark training eligible while "
+                        "duplicate_decision is NotReviewed."
+                    ),
+                )
 
-    return MLFeedbackResponse(
-        complaint_reference=complaint.complaint_reference,
-        final_category=updated_feedback.final_category,
-        final_department_id=updated_feedback.final_department_id,
-        final_priority=updated_feedback.final_priority,
-        actual_resolution_hours=updated_feedback.actual_resolution_hours,
-        duplicate_decision=updated_feedback.duplicate_decision,
-        training_eligible=updated_feedback.training_eligible,
-        exclusion_reason=updated_feedback.exclusion_reason,
-        reviewed_by_user_id=updated_feedback.reviewed_by_user_id,
-        reviewed_at=updated_feedback.reviewed_at,
-    )
+        updated_feedback = update_ml_feedback_record(
+            db=db,
+            feedback=feedback,
+            updates=updates,
+            reviewed_by_user_id=current_user.id,
+        )
+
+        create_audit_log(
+            db=db,
+            actor_user_id=current_user.id,
+            action="UPDATE_ML_FEEDBACK",
+            entity_type="Complaint",
+            entity_id=str(complaint.id),
+            details=(
+                f"ML feedback updated; "
+                f"training_eligible={updated_feedback.training_eligible}"
+            ),
+        )
+
+        return MLFeedbackResponse(
+            complaint_reference=complaint.complaint_reference,
+            final_category=updated_feedback.final_category,
+            final_department_id=updated_feedback.final_department_id,
+            final_priority=updated_feedback.final_priority,
+            actual_resolution_hours=(
+                updated_feedback.actual_resolution_hours
+            ),
+            duplicate_decision=updated_feedback.duplicate_decision,
+            training_eligible=updated_feedback.training_eligible,
+            exclusion_reason=updated_feedback.exclusion_reason,
+            reviewed_by_user_id=updated_feedback.reviewed_by_user_id,
+            reviewed_at=updated_feedback.reviewed_at,
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(
+            f"ML feedback update failed for "
+            f"{complaint_reference}: {error}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ML feedback could not be updated.",
+        ) from error
 
 @app.get(
     "/admin/audit-logs",
@@ -1374,9 +2265,9 @@ def get_audit_logs(
 ) -> AuditLogListResponse:
     total, logs = list_audit_logs(
         db=db,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        action=action,
+        entity_type=entity_type.strip() if entity_type else None,
+        entity_id=entity_id.strip() if entity_id else None,
+        action=action.strip() if action else None,
         actor_user_id=actor_user_id,
         limit=limit,
         offset=offset,
@@ -1396,6 +2287,59 @@ def get_audit_logs(
             )
             for log in logs
         ],
+    )
+
+
+@app.post(
+    "/admin/ml/training-export",
+    response_model=MLTrainingExportResponse,
+)
+def export_ml_training_dataset(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Admin")),
+) -> MLTrainingExportResponse:
+    try:
+        records = list_training_eligible_records(db=db)
+
+        result = export_training_feedback_dataset(records)
+
+        create_audit_log(
+            db=db,
+            actor_user_id=current_user.id,
+            action="EXPORT_ML_TRAINING_DATASET",
+            entity_type="MLTrainingDataset",
+            entity_id=result["dataset_version"],
+            details=(
+                f"Exported {result['record_count']} eligible records; "
+                f"sha256={result['sha256']}"
+            ),
+        )
+
+        return MLTrainingExportResponse(**result)
+
+    except HTTPException:
+        raise
+
+    except Exception as error:
+        db.rollback()
+        print(f"ML training dataset export failed: {error}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ML training dataset export could not be completed.",
+        ) from error
+
+
+@app.get(
+    "/admin/ml/monitoring",
+    response_model=MLMonitoringResponse,
+)
+def get_ml_monitoring(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Admin")),
+) -> MLMonitoringResponse:
+    return MLMonitoringResponse(
+        **get_ml_monitoring_summary(db=db)
     )
 
 

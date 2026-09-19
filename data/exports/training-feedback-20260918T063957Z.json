@@ -1,0 +1,43 @@
+{
+  "dataset_version": "training-feedback-20260918T063957Z",
+  "schema_version": "1.0",
+  "exported_at": "2026-09-18T06:39:57.751443+00:00",
+  "record_count": 0,
+  "candidate_record_count": 0,
+  "excluded_record_count": 0,
+  "excluded_records": [],
+  "sha256": "d5afc55b8e08b1004e09bc06e6121da35c8cbfb2b30fdf3bfead26414ea0ee4a",
+  "csv_file": "data\\exports\\training-feedback-20260918T063957Z.csv",
+  "selection_rules": {
+    "training_eligible": true,
+    "complaint_status": [
+      "Resolved",
+      "Closed"
+    ],
+    "impact_verification_status": [
+      "Verified",
+      "Adjusted"
+    ],
+    "verified_affected_population_required": true
+  },
+  "columns": [
+    "complaint_id",
+    "complaint_reference",
+    "complaint_text",
+    "language",
+    "location_type",
+    "specific_location",
+    "reported_affected_population",
+    "verified_affected_population",
+    "impact_verification_status",
+    "final_category",
+    "final_department_id",
+    "final_priority",
+    "actual_resolution_hours",
+    "duplicate_decision",
+    "complaint_status",
+    "complaint_created_at",
+    "feedback_reviewed_at",
+    "feedback_reviewed_by_user_id"
+  ]
+}

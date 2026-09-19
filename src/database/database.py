@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
-from typing import Generator
+from collections.abc import Generator
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -14,19 +15,25 @@ load_dotenv()
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "sqlite:///./campusresolve.db",
-)
+).strip()
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL cannot be empty.")
 
 
-connect_args = (
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+connect_args: dict[str, bool] = (
     {"check_same_thread": False}
-    if DATABASE_URL.startswith("sqlite")
+    if is_sqlite
     else {}
 )
 
 
-engine = create_engine(
+engine: Engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
+    pool_pre_ping=not is_sqlite,
 )
 
 
@@ -34,6 +41,7 @@ SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,
     autocommit=False,
+    expire_on_commit=False,
 )
 
 
@@ -46,17 +54,23 @@ def get_db() -> Generator[Session, None, None]:
 
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
 
 def initialise_database() -> None:
-    # Import every model before create_all() so SQLAlchemy registers its table.
+    # Import models before create_all() so SQLAlchemy registers every table
+    # on Base.metadata.
     from src.database.models import (
         AuditLog,
         CampusBlock,
         Complaint,
         ComplaintAssignment,
+        ComplaintAssignmentHistory,
+        ComplaintEscalation,
         ComplaintOwnership,
         ComplaintStatusHistory,
         ComplaintVerification,

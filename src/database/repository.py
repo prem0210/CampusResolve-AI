@@ -3,16 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session
-
-from sqlalchemy import and_, desc
 
 from src.database.models import (
     AuditLog,
     CampusBlock,
     Complaint,
     ComplaintAssignment,
+    ComplaintAssignmentHistory,
+    ComplaintEscalation,
     ComplaintOwnership,
     ComplaintStatusHistory,
     ComplaintVerification,
@@ -21,6 +21,7 @@ from src.database.models import (
     MLFeedbackRecord,
     User,
 )
+
 
 def build_complaint_reference(db: Session) -> str:
     date_prefix = datetime.now().strftime("%Y%m%d")
@@ -91,7 +92,6 @@ def count_complaints(db: Session) -> int:
     return int(db.scalar(select(func.count()).select_from(Complaint)) or 0)
 
 
-
 def get_complaint_by_reference(
     db: Session,
     complaint_reference: str,
@@ -110,6 +110,13 @@ def list_complaints(
     department: str | None = None,
     category: str | None = None,
     submitted_by_user_id: int | None = None,
+    staff_user_id: int | None = None,
+    staff_department_id: int | None = None,
+    assigned_to_user_id: int | None = None,
+    assignment_state: str | None = None,
+    assigned_department_id: int | None = None,
+    escalation_state: str | None = None,
+    due_before: datetime | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[int, list[Complaint]]:
@@ -137,15 +144,115 @@ def list_complaints(
             )
         )
 
+    assignment_exists = (
+        select(ComplaintAssignment.id)
+        .where(ComplaintAssignment.complaint_id == Complaint.id)
+        .exists()
+    )
+
+    # A staff queue must expose only unassigned complaints, complaints
+    # directly assigned to the staff member, or complaints assigned to
+    # the staff member's department.
+    if staff_user_id is not None:
+        staff_visibility_filters = [
+            ~assignment_exists,
+            Complaint.id.in_(
+                select(ComplaintAssignment.complaint_id).where(
+                    ComplaintAssignment.assigned_to_user_id
+                    == staff_user_id
+                )
+            ),
+        ]
+
+        if staff_department_id is not None:
+            staff_visibility_filters.append(
+                Complaint.id.in_(
+                    select(ComplaintAssignment.complaint_id).where(
+                        ComplaintAssignment.assigned_department_id
+                        == staff_department_id
+                    )
+                )
+            )
+
+        filters.append(or_(*staff_visibility_filters))
+
+    if assignment_state == "Assigned":
+        filters.append(assignment_exists)
+
+    if assignment_state == "Unassigned":
+        filters.append(~assignment_exists)
+
+    if assigned_to_user_id is not None:
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintAssignment.complaint_id).where(
+                    ComplaintAssignment.assigned_to_user_id
+                    == assigned_to_user_id
+                )
+            )
+        )
+
+    if assigned_department_id is not None:
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintAssignment.complaint_id).where(
+                    ComplaintAssignment.assigned_department_id
+                    == assigned_department_id
+                )
+            )
+        )
+
+    active_complaint_filter = Complaint.status.not_in(
+        ["Resolved", "Closed"]
+    )
+
+    if escalation_state == "OnTrack":
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintEscalation.complaint_id).where(
+                    ComplaintEscalation.escalation_state == "OnTrack"
+                )
+            )
+        )
+
+    if escalation_state == "Escalated":
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintEscalation.complaint_id).where(
+                    ComplaintEscalation.escalation_state == "Escalated"
+                )
+            )
+        )
+
+    if escalation_state == "Overdue":
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintEscalation.complaint_id).where(
+                    ComplaintEscalation.due_at.is_not(None),
+                    ComplaintEscalation.due_at < datetime.utcnow(),
+                    ComplaintEscalation.escalation_state != "Escalated",
+                )
+            )
+        )
+        filters.append(active_complaint_filter)
+
+    if due_before is not None:
+        filters.append(
+            Complaint.id.in_(
+                select(ComplaintEscalation.complaint_id).where(
+                    ComplaintEscalation.due_at.is_not(None),
+                    ComplaintEscalation.due_at <= due_before,
+                )
+            )
+        )
+
     query = select(Complaint)
-
-    if filters:
-        query = query.where(and_(*filters))
-
     count_query = select(func.count()).select_from(Complaint)
 
     if filters:
-        count_query = count_query.where(and_(*filters))
+        filter_expression = and_(*filters)
+        query = query.where(filter_expression)
+        count_query = count_query.where(filter_expression)
 
     total = int(db.scalar(count_query) or 0)
 
@@ -190,7 +297,6 @@ def get_dashboard_summary(
 
     def count_with_filters(*conditions: Any) -> int:
         query = select(func.count()).select_from(Complaint)
-
         filters = list(conditions)
 
         if ownership_filter is not None:
@@ -200,6 +306,22 @@ def get_dashboard_summary(
             query = query.where(and_(*filters))
 
         return int(db.scalar(query) or 0)
+
+    active_complaint_filter = Complaint.status.in_(["Open", "In Progress"])
+
+    overdue_complaint_filter = Complaint.id.in_(
+        select(ComplaintEscalation.complaint_id).where(
+            ComplaintEscalation.due_at.is_not(None),
+            ComplaintEscalation.due_at < datetime.utcnow(),
+            ComplaintEscalation.escalation_state != "Escalated",
+        )
+    )
+
+    escalated_complaint_filter = Complaint.id.in_(
+        select(ComplaintEscalation.complaint_id).where(
+            ComplaintEscalation.escalation_state == "Escalated"
+        )
+    )
 
     return {
         "total_complaints": count_with_filters(),
@@ -214,17 +336,26 @@ def get_dashboard_summary(
             Complaint.status == "Closed"
         ),
         "critical_open_complaints": count_with_filters(
-            Complaint.status.in_(["Open", "In Progress"]),
+            active_complaint_filter,
             Complaint.predicted_priority == "Critical",
         ),
         "high_open_complaints": count_with_filters(
-            Complaint.status.in_(["Open", "In Progress"]),
+            active_complaint_filter,
             Complaint.predicted_priority == "High",
         ),
         "possible_duplicate_complaints": count_with_filters(
-            Complaint.possible_duplicate.is_(True),
+            Complaint.possible_duplicate.is_(True)
+        ),
+        "overdue_open_complaints": count_with_filters(
+            active_complaint_filter,
+            overdue_complaint_filter,
+        ),
+        "escalated_open_complaints": count_with_filters(
+            active_complaint_filter,
+            escalated_complaint_filter,
         ),
     }
+
 
 def list_departments(
     db: Session,
@@ -256,7 +387,6 @@ def list_campus_blocks(
     active_only: bool = True,
 ) -> list[CampusBlock]:
     query = select(CampusBlock).order_by(CampusBlock.name)
-
     filters = []
 
     if location_type_id is not None:
@@ -269,6 +399,7 @@ def list_campus_blocks(
         query = query.where(and_(*filters))
 
     return list(db.scalars(query).all())
+
 
 def get_user_by_email(
     db: Session,
@@ -284,6 +415,7 @@ def get_user_by_id(
     user_id: int,
 ) -> User | None:
     return db.get(User, user_id)
+
 
 def get_department_by_id(
     db: Session,
@@ -388,6 +520,7 @@ def create_campus_block(
 
     return campus_block
 
+
 def update_department(
     db: Session,
     department: Department,
@@ -424,6 +557,7 @@ def update_campus_block(
     db.refresh(campus_block)
 
     return campus_block
+
 
 def create_audit_log(
     db: Session,
@@ -472,14 +606,12 @@ def list_audit_logs(
         filters.append(AuditLog.actor_user_id == actor_user_id)
 
     query = select(AuditLog)
-
-    if filters:
-        query = query.where(and_(*filters))
-
     count_query = select(func.count()).select_from(AuditLog)
 
     if filters:
-        count_query = count_query.where(and_(*filters))
+        filter_expression = and_(*filters)
+        query = query.where(filter_expression)
+        count_query = count_query.where(filter_expression)
 
     total = int(db.scalar(count_query) or 0)
 
@@ -492,6 +624,8 @@ def list_audit_logs(
     )
 
     return total, logs
+
+
 def get_complaint_verification(
     db: Session,
     complaint_id: int,
@@ -518,6 +652,7 @@ def get_or_create_complaint_verification(
             reported_affected_population=complaint.affected_population,
             impact_verification_status="Unverified",
         )
+
         db.add(verification)
         db.commit()
         db.refresh(verification)
@@ -544,6 +679,7 @@ def update_complaint_verification(
     db.refresh(verification)
 
     return verification
+
 
 def create_status_history(
     db: Session,
@@ -580,6 +716,7 @@ def list_status_history(
 
     return list(db.scalars(query).all())
 
+
 def get_ml_feedback_record(
     db: Session,
     complaint_id: int,
@@ -606,6 +743,7 @@ def get_or_create_ml_feedback_record(
             training_eligible=False,
             duplicate_decision="NotReviewed",
         )
+
         db.add(feedback)
         db.commit()
         db.refresh(feedback)
@@ -632,6 +770,7 @@ def update_ml_feedback_record(
     db.refresh(feedback)
 
     return feedback
+
 
 def create_complaint_ownership(
     db: Session,
@@ -676,6 +815,7 @@ def is_complaint_owner(
         and ownership.submitted_by_user_id == user_id
     )
 
+
 def list_unowned_complaints(
     db: Session,
     limit: int = 100,
@@ -700,8 +840,7 @@ def list_unowned_complaints(
 
     complaints = list(
         db.scalars(
-            base_query
-            .order_by(desc(Complaint.created_at))
+            base_query.order_by(desc(Complaint.created_at))
             .offset(offset)
             .limit(limit)
         ).all()
@@ -721,6 +860,7 @@ def update_complaint_ownership(
     db.refresh(ownership)
 
     return ownership
+
 
 def get_complaint_assignment(
     db: Session,
@@ -776,3 +916,379 @@ def update_complaint_assignment(
     db.refresh(assignment)
 
     return assignment
+
+
+def create_assignment_history(
+    db: Session,
+    complaint_id: int,
+    previous_assigned_to_user_id: int | None,
+    new_assigned_to_user_id: int,
+    previous_department_id: int | None,
+    new_department_id: int | None,
+    changed_by_user_id: int,
+    note: str | None = None,
+) -> ComplaintAssignmentHistory:
+    history = ComplaintAssignmentHistory(
+        complaint_id=complaint_id,
+        previous_assigned_to_user_id=previous_assigned_to_user_id,
+        new_assigned_to_user_id=new_assigned_to_user_id,
+        previous_department_id=previous_department_id,
+        new_department_id=new_department_id,
+        changed_by_user_id=changed_by_user_id,
+        note=note.strip() if note else None,
+    )
+
+    db.add(history)
+    db.commit()
+    db.refresh(history)
+
+    return history
+
+
+def list_assignment_history(
+    db: Session,
+    complaint_id: int,
+) -> list[ComplaintAssignmentHistory]:
+    query = (
+        select(ComplaintAssignmentHistory)
+        .where(ComplaintAssignmentHistory.complaint_id == complaint_id)
+        .order_by(ComplaintAssignmentHistory.changed_at.asc())
+    )
+
+    return list(db.scalars(query).all())
+
+
+def get_complaint_escalation(
+    db: Session,
+    complaint_id: int,
+) -> ComplaintEscalation | None:
+    return db.scalar(
+        select(ComplaintEscalation).where(
+            ComplaintEscalation.complaint_id == complaint_id
+        )
+    )
+
+
+def create_complaint_escalation(
+    db: Session,
+    complaint_id: int,
+    due_at: datetime | None,
+    escalation_state: str,
+    escalation_reason: str | None,
+    set_by_user_id: int,
+) -> ComplaintEscalation:
+    escalation = ComplaintEscalation(
+        complaint_id=complaint_id,
+        due_at=due_at,
+        escalation_state=escalation_state,
+        escalation_reason=(
+            escalation_reason.strip()
+            if escalation_reason
+            else None
+        ),
+        set_by_user_id=set_by_user_id,
+        escalated_at=(
+            datetime.utcnow()
+            if escalation_state == "Escalated"
+            else None
+        ),
+    )
+
+    db.add(escalation)
+    db.commit()
+    db.refresh(escalation)
+
+    return escalation
+
+
+def update_complaint_escalation(
+    db: Session,
+    escalation: ComplaintEscalation,
+    due_at: datetime | None,
+    escalation_state: str,
+    escalation_reason: str | None,
+    set_by_user_id: int,
+) -> ComplaintEscalation:
+    escalation.due_at = due_at
+    escalation.escalation_state = escalation_state
+    escalation.escalation_reason = (
+        escalation_reason.strip()
+        if escalation_reason
+        else None
+    )
+    escalation.set_by_user_id = set_by_user_id
+    escalation.escalated_at = (
+        datetime.utcnow()
+        if escalation_state == "Escalated"
+        else None
+    )
+
+    db.commit()
+    db.refresh(escalation)
+
+    return escalation
+
+
+def is_complaint_overdue(
+    complaint: Complaint,
+    escalation: ComplaintEscalation | None,
+) -> bool:
+    if escalation is None or escalation.due_at is None:
+        return False
+
+    if complaint.status in {"Resolved", "Closed"}:
+        return False
+
+    if escalation.escalation_state == "Escalated":
+        return False
+
+    return escalation.due_at < datetime.utcnow()
+
+
+def can_staff_access_complaint(
+    db: Session,
+    complaint_id: int,
+    staff_user_id: int,
+    staff_department_id: int | None,
+) -> bool:
+    assignment = get_complaint_assignment(
+        db=db,
+        complaint_id=complaint_id,
+    )
+
+    # Unassigned complaints remain visible to staff.
+    if assignment is None:
+        return True
+
+    # The explicitly assigned staff member always has access.
+    if assignment.assigned_to_user_id == staff_user_id:
+        return True
+
+    # Other staff need membership in the assigned department.
+    return (
+        staff_department_id is not None
+        and assignment.assigned_department_id == staff_department_id
+    )
+
+
+def list_training_eligible_records(
+    db: Session,
+) -> list[tuple[Complaint, MLFeedbackRecord, ComplaintVerification | None]]:
+    query = (
+        select(
+            Complaint,
+            MLFeedbackRecord,
+            ComplaintVerification,
+        )
+        .join(
+            MLFeedbackRecord,
+            MLFeedbackRecord.complaint_id == Complaint.id,
+        )
+        .outerjoin(
+            ComplaintVerification,
+            ComplaintVerification.complaint_id == Complaint.id,
+        )
+        .where(
+            MLFeedbackRecord.training_eligible.is_(True),
+            Complaint.status.in_(["Resolved", "Closed"]),
+        )
+        .order_by(Complaint.id.asc())
+    )
+
+    return list(db.execute(query).all())
+
+
+def get_ml_monitoring_summary(
+    db: Session,
+) -> dict[str, Any]:
+    reviewed_feedback_records = int(
+        db.scalar(
+            select(func.count())
+            .select_from(MLFeedbackRecord)
+            .where(MLFeedbackRecord.reviewed_at.is_not(None))
+        )
+        or 0
+    )
+
+    training_eligible_records = int(
+        db.scalar(
+            select(func.count())
+            .select_from(MLFeedbackRecord)
+            .where(MLFeedbackRecord.training_eligible.is_(True))
+        )
+        or 0
+    )
+
+    verified_impact_records = int(
+        db.scalar(
+            select(func.count())
+            .select_from(ComplaintVerification)
+            .where(
+                ComplaintVerification.impact_verification_status.in_(
+                    ["Verified", "Adjusted"]
+                ),
+                ComplaintVerification.verified_affected_population.is_not(
+                    None
+                ),
+            )
+        )
+        or 0
+    )
+
+    feedback_rows = list(
+        db.execute(
+            select(Complaint, MLFeedbackRecord)
+            .join(
+                MLFeedbackRecord,
+                MLFeedbackRecord.complaint_id == Complaint.id,
+            )
+            .where(MLFeedbackRecord.reviewed_at.is_not(None))
+        ).all()
+    )
+
+    def agreement_metric(
+        predicted_getter: Any,
+        final_getter: Any,
+    ) -> dict[str, Any]:
+        evaluated_rows = [
+            (complaint, feedback)
+            for complaint, feedback in feedback_rows
+            if predicted_getter(complaint) is not None
+            and final_getter(feedback) is not None
+        ]
+
+        matching_records = sum(
+            1
+            for complaint, feedback in evaluated_rows
+            if predicted_getter(complaint) == final_getter(feedback)
+        )
+
+        evaluated_records = len(evaluated_rows)
+
+        return {
+            "evaluated_records": evaluated_records,
+            "matching_records": matching_records,
+            "agreement_rate": (
+                matching_records / evaluated_records
+                if evaluated_records > 0
+                else None
+            ),
+        }
+
+    category_agreement = agreement_metric(
+        predicted_getter=lambda complaint: complaint.predicted_category,
+        final_getter=lambda feedback: feedback.final_category,
+    )
+
+    priority_agreement = agreement_metric(
+        predicted_getter=lambda complaint: complaint.predicted_priority,
+        final_getter=lambda feedback: feedback.final_priority,
+    )
+
+    department_rows = [
+        (complaint, feedback)
+        for complaint, feedback in feedback_rows
+        if complaint.assigned_department is not None
+        and feedback.final_department_id is not None
+    ]
+
+    department_matching_records = 0
+
+    for complaint, feedback in department_rows:
+        department = get_department_by_id(
+            db=db,
+            department_id=feedback.final_department_id,
+        )
+
+        if department is not None:
+            predicted_department = complaint.assigned_department.strip().lower()
+            final_department_name = department.name.strip().lower()
+
+            if predicted_department == final_department_name:
+                department_matching_records += 1
+
+    department_evaluated_records = len(department_rows)
+
+    department_agreement = {
+        "evaluated_records": department_evaluated_records,
+        "matching_records": department_matching_records,
+        "agreement_rate": (
+            department_matching_records / department_evaluated_records
+            if department_evaluated_records > 0
+            else None
+        ),
+    }
+
+    resolution_rows = [
+        (complaint, feedback)
+        for complaint, feedback in feedback_rows
+        if complaint.estimated_resolution_hours is not None
+        and feedback.actual_resolution_hours is not None
+    ]
+
+    absolute_errors = [
+        abs(
+            complaint.estimated_resolution_hours
+            - feedback.actual_resolution_hours
+        )
+        for complaint, feedback in resolution_rows
+    ]
+
+    resolution_time = {
+        "evaluated_records": len(absolute_errors),
+        "mean_absolute_error_hours": (
+            sum(absolute_errors) / len(absolute_errors)
+            if absolute_errors
+            else None
+        ),
+    }
+
+    duplicate_rows = [
+        (complaint, feedback)
+        for complaint, feedback in feedback_rows
+        if feedback.duplicate_decision is not None
+    ]
+
+    suggested_duplicate_records = sum(
+        1
+        for complaint, _feedback in duplicate_rows
+        if complaint.possible_duplicate
+    )
+
+    confirmed_duplicate_records = sum(
+        1
+        for _complaint, feedback in duplicate_rows
+        if feedback.duplicate_decision == "ConfirmedDuplicate"
+    )
+
+    rejected_duplicate_suggestions = sum(
+        1
+        for complaint, feedback in duplicate_rows
+        if complaint.possible_duplicate
+        and feedback.duplicate_decision == "NotDuplicate"
+    )
+
+    related_issue_records = sum(
+        1
+        for _complaint, feedback in duplicate_rows
+        if feedback.duplicate_decision == "RelatedIssue"
+    )
+
+    duplicate_decisions = {
+        "evaluated_records": len(duplicate_rows),
+        "suggested_duplicate_records": suggested_duplicate_records,
+        "confirmed_duplicate_records": confirmed_duplicate_records,
+        "rejected_duplicate_suggestions": rejected_duplicate_suggestions,
+        "related_issue_records": related_issue_records,
+    }
+
+    return {
+        "reviewed_feedback_records": reviewed_feedback_records,
+        "training_eligible_records": training_eligible_records,
+        "verified_impact_records": verified_impact_records,
+        "category_agreement": category_agreement,
+        "department_agreement": department_agreement,
+        "priority_agreement": priority_agreement,
+        "resolution_time": resolution_time,
+        "duplicate_decisions": duplicate_decisions,
+    }

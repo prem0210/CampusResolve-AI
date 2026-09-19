@@ -1,18 +1,33 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
+
+
+ImpactVerificationStatus = Literal[
+    "Unverified",
+    "Verified",
+    "Adjusted",
+    "Disputed",
+]
 
 
 class DepartmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int = Field(ge=1)
     code: str
     name: str
     description: str | None = None
-    contact_email: str | None = None
+    contact_email: EmailStr | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -21,7 +36,7 @@ class DepartmentResponse(BaseModel):
 class LocationTypeResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int = Field(ge=1)
     name: str
     is_active: bool
     created_at: datetime
@@ -31,30 +46,39 @@ class LocationTypeResponse(BaseModel):
 class CampusBlockResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int = Field(ge=1)
     code: str
     name: str
-    location_type_id: int
-    capacity: int | None = None
-    responsible_department_id: int | None = None
+    location_type_id: int = Field(ge=1)
+    capacity: int | None = Field(default=None, ge=0)
+    responsible_department_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
     is_active: bool
     created_at: datetime
     updated_at: datetime
 
 
 class DepartmentListResponse(BaseModel):
-    total: int
-    departments: list[DepartmentResponse]
+    total: int = Field(ge=0)
+    departments: list[DepartmentResponse] = Field(
+        default_factory=list
+    )
 
 
 class LocationTypeListResponse(BaseModel):
-    total: int
-    location_types: list[LocationTypeResponse]
+    total: int = Field(ge=0)
+    location_types: list[LocationTypeResponse] = Field(
+        default_factory=list
+    )
 
 
 class CampusBlockListResponse(BaseModel):
-    total: int
-    campus_blocks: list[CampusBlockResponse]
+    total: int = Field(ge=0)
+    campus_blocks: list[CampusBlockResponse] = Field(
+        default_factory=list
+    )
 
 
 class DepartmentCreateRequest(BaseModel):
@@ -73,10 +97,34 @@ class DepartmentCreateRequest(BaseModel):
         default=None,
         max_length=1000,
     )
-    contact_email: str | None = Field(
-        default=None,
-        max_length=255,
-    )
+    contact_email: EmailStr | None = None
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        return value.strip().upper()
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Department name cannot be blank.")
+
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+        return value or None
 
 
 class CampusBlockCreateRequest(BaseModel):
@@ -97,7 +145,7 @@ class CampusBlockCreateRequest(BaseModel):
     )
     capacity: int | None = Field(
         default=None,
-        ge=1,
+        ge=0,
         le=100000,
         examples=[240],
     )
@@ -107,30 +155,100 @@ class CampusBlockCreateRequest(BaseModel):
         examples=[3],
     )
 
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        return value.strip().upper()
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Campus-block name cannot be blank.")
+
+        return value
+
 
 class DepartmentUpdateRequest(BaseModel):
-    name: str | None = Field(default=None, min_length=2, max_length=150)
-    description: str | None = Field(default=None, max_length=1000)
-    contact_email: str | None = Field(default=None, max_length=255)
+    name: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=150,
+    )
+    description: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+    contact_email: EmailStr | None = None
     is_active: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+        return value or None
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+        return value or None
 
 
 class CampusBlockUpdateRequest(BaseModel):
-    name: str | None = Field(default=None, min_length=2, max_length=150)
+    name: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=150,
+    )
     location_type_id: int | None = Field(default=None, ge=1)
-    capacity: int | None = Field(default=None, ge=1, le=100000)
-    responsible_department_id: int | None = Field(default=None, ge=1)
+    capacity: int | None = Field(
+        default=None,
+        ge=0,
+        le=100000,
+    )
+    responsible_department_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
     is_active: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+        return value or None
+
 
 class ComplaintImpactVerificationRequest(BaseModel):
     verified_affected_population: int | None = Field(
         default=None,
-        ge=1,
+        ge=0,
         le=100000,
         examples=[120],
     )
 
-    impact_verification_status: str = Field(
+    impact_verification_status: ImpactVerificationStatus = Field(
         examples=["Verified"],
     )
 
@@ -138,3 +256,15 @@ class ComplaintImpactVerificationRequest(BaseModel):
         default=None,
         max_length=1000,
     )
+
+    @field_validator("impact_verification_note")
+    @classmethod
+    def normalize_verification_note(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        value = value.strip()
+        return value or None
