@@ -1947,6 +1947,16 @@ def verify_complaint_impact(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to this complaint.",
         )
+    existing_verification = get_complaint_verification(
+        db=db,
+        complaint_id=complaint.id,
+    )
+
+    if existing_verification is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Complaint impact has already been verified.",
+        )
 
     if request.impact_verification_status not in IMPACT_VERIFICATION_STATUSES:
         allowed_text = ", ".join(
