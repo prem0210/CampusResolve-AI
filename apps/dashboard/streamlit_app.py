@@ -882,13 +882,6 @@ def show_staff_dashboard(api_ready: bool) -> None:
         )
         return
 
-    if not is_staff_or_admin():
-        st.error(
-            "Please sign in with a Staff or Admin account "
-            "to access the operations workspace."
-        )
-        return
-
     render_page_heading(
         "Staff operations workspace",
         "Complaint queue and operational insights",
@@ -1125,6 +1118,280 @@ def show_staff_dashboard(api_ready: bool) -> None:
                 with st.expander("Technical details"):
                     st.code(str(error))
 
+    st.markdown("### Impact verification")
+
+    try:
+        timeline_data = api_get(
+            f"/complaints/{selected_reference}/timeline"
+        )
+        impact = timeline_data.get("impact")
+    except requests.RequestException as error:
+        timeline_data = None
+        impact = None
+        st.warning(
+            "Impact-verification details could not be loaded. "
+            "You can refresh the queue and try again."
+        )
+        with st.expander("Technical details"):
+            st.code(str(error))
+
+    reported_population = int(selected.get("affected_population") or 0)
+
+    with st.container(border=True):
+        st.markdown("#### Verify reported impact")
+        st.write(f"**Reported affected population:** {reported_population}")
+
+        if impact and impact.get("impact_verification_status") != "Unverified":
+            verification_status = impact.get(
+                "impact_verification_status",
+                "Not available",
+            )
+            verified_population = impact.get(
+                "verified_affected_population"
+            )
+            verification_note = impact.get("impact_verification_note")
+            verified_at = impact.get("verified_at")
+
+            st.success(
+                f"Impact verification completed: {verification_status}"
+            )
+            st.write(
+                "**Verified affected population:** "
+                f"{verified_population if verified_population is not None else 'Not applicable'}"
+            )
+            st.write(
+                "**Verification note:** "
+                f"{verification_note or 'No note provided'}"
+            )
+            st.write(
+                f"**Verified at:** {format_datetime(verified_at)}"
+            )
+            st.caption(
+                "Impact verification is final and cannot be changed."
+            )
+        else:
+            st.info(
+                "Verify the reported impact after reviewing the complaint."
+            )
+
+            with st.form(
+                f"impact_verification_form_{selected_reference}"
+            ):
+                verification_status = st.selectbox(
+                    "Verification decision",
+                    options=["Verified", "Adjusted", "Rejected"],
+                    help=(
+                        "Verified accepts the reported population. "
+                        "Adjusted records a corrected population. "
+                        "Rejected records no verified population."
+                    ),
+                )
+
+                verified_population = st.number_input(
+                    "Verified affected population",
+                    min_value=0,
+                    max_value=100000,
+                    value=reported_population,
+                    step=1,
+                    disabled=verification_status == "Rejected",
+                    help=(
+                        "Enter the corrected population for Adjusted. "
+                        "For Verified, the reported population is used. "
+                        "For Rejected, no population is stored."
+                    ),
+                )
+
+                verification_note = st.text_area(
+                    "Verification note",
+                    max_chars=1000,
+                    placeholder=(
+                        "Example: Confirmed during hostel inspection "
+                        "at 10:30 AM."
+                    ),
+                    height=100,
+                )
+
+                verification_confirmed = st.checkbox(
+                    "I confirm this impact assessment is accurate.",
+                    key=(
+                        f"impact_verification_confirmed_"
+                        f"{selected_reference}"
+                    ),
+                )
+
+                verification_submitted = st.form_submit_button(
+                    "Confirm impact verification",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+            if verification_submitted:
+                if not verification_confirmed:
+                    st.warning(
+                        "Confirm the impact assessment before saving."
+                    )
+                elif (
+                    verification_status == "Adjusted"
+                    and verified_population is None
+                ):
+                    st.warning(
+                        "Enter the corrected affected population."
+                    )
+                else:
+                    verification_payload: dict[str, Any] = {
+                        "impact_verification_status": verification_status,
+                        "impact_verification_note": (
+                            verification_note.strip() or None
+                        ),
+                    }
+
+                    if verification_status == "Adjusted":
+                        verification_payload[
+                            "verified_affected_population"
+                        ] = int(verified_population)
+                    elif verification_status == "Rejected":
+                        verification_payload[
+                            "verified_affected_population"
+                        ] = None
+
+                    try:
+                        with st.spinner(
+                            "Saving impact verification..."
+                        ):
+                            api_patch(
+                                f"/complaints/{selected_reference}"
+                                "/impact-verification",
+                                verification_payload,
+                            )
+                        st.success(
+                            "Impact verification saved successfully."
+                        )
+                        st.rerun()
+                    except requests.HTTPError as error:
+                        status_code = error.response.status_code
+
+                        if status_code == 400:
+                            st.warning(
+                                "This complaint has already been verified "
+                                "or the verification details are invalid."
+                            )
+                        elif status_code == 401:
+                            st.error(
+                                "Your session has expired. "
+                                "Please sign in again."
+                            )
+                        elif status_code == 403:
+                            st.error(
+                                "You do not have permission to verify "
+                                "this complaint."
+                            )
+                        elif status_code == 404:
+                            st.error("Complaint not found.")
+                        elif status_code == 422:
+                            st.error(
+                                "Check the verification values and note."
+                            )
+                        else:
+                            st.error(
+                                "The impact verification could not be "
+                                "saved. Please try again."
+                            )
+
+                        with st.expander("Technical details"):
+                            st.code(str(error))
+                    except requests.RequestException as error:
+                        st.error(
+                            "The complaint service could not be reached. "
+                            "Please try again shortly."
+                        )
+                        with st.expander("Technical details"):
+                            st.code(str(error))
+
+    st.markdown("### Operational timeline")
+
+    staff_timeline = timeline_data
+
+    if staff_timeline:
+        assignment = staff_timeline.get("assignment")
+        escalation = staff_timeline.get("escalation")
+        status_history = staff_timeline.get("status_history", [])
+
+        timeline_col1, timeline_col2 = st.columns(2, gap="large")
+
+        with timeline_col1:
+            with st.container(border=True):
+                st.markdown("#### Assignment")
+
+                if assignment:
+                    st.write(
+                        f"**Assigned user ID:** "
+                        f"{assignment.get('assigned_to_user_id', 'Not available')}"
+                    )
+                    st.write(
+                        f"**Assigned department ID:** "
+                        f"{assignment.get('assigned_department_id', 'Not assigned')}"
+                    )
+                    st.write(
+                        f"**Assigned at:** "
+                        f"{format_datetime(assignment.get('assigned_at'))}"
+                    )
+                    st.write(
+                        f"**Assignment note:** "
+                        f"{assignment.get('assignment_note') or 'No note provided'}"
+                    )
+                else:
+                    st.caption("This complaint has not been assigned yet.")
+
+        with timeline_col2:
+            with st.container(border=True):
+                st.markdown("#### Escalation")
+
+                if escalation:
+                    escalation_state = escalation.get(
+                        "escalation_state",
+                        "Not available",
+                    )
+                    overdue_label = (
+                        "Yes"
+                        if escalation.get("is_overdue")
+                        else "No"
+                    )
+
+                    st.write(
+                        f"**Escalation state:** {escalation_state}"
+                    )
+                    st.write(
+                        f"**Due at:** "
+                        f"{format_datetime(escalation.get('due_at'))}"
+                    )
+                    st.write(f"**Overdue:** {overdue_label}")
+                    st.write(
+                        f"**Reason:** "
+                        f"{escalation.get('escalation_reason') or 'No reason provided'}"
+                    )
+                else:
+                    st.caption("No escalation has been recorded.")
+
+        with st.container(border=True):
+            st.markdown("#### Status history")
+
+            if not status_history:
+                st.caption("No status changes have been recorded yet.")
+            else:
+                for event in reversed(status_history):
+                    old_status = event.get("old_status") or "Created"
+                    new_status = event.get("new_status", "Not available")
+                    changed_at = format_datetime(
+                        event.get("changed_at")
+                    )
+                    note = event.get("note") or "No note provided"
+
+                    st.markdown(
+                        f"**{old_status} → {new_status}**  \n"
+                        f"{changed_at}  \n"
+                        f"{note}"
+                    )
+                    st.divider()
 
 def show_complaint_tracker(api_ready: bool) -> None:
     if st.session_state.get("pending_track_reference"):
