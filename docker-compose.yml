@@ -7,6 +7,11 @@ services:
     environment:
       DATABASE_URL: sqlite:////app/storage/campusresolve.db
       TOKENIZERS_PARALLELISM: "false"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_ISSUER: campusresolve-api
+      JWT_AUDIENCE: campusresolve-client
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
     ports:
       - "8000:8000"
     volumes:
@@ -22,7 +27,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     restart: unless-stopped
 
   dashboard:
