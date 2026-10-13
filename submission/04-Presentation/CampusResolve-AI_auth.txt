@@ -1,0 +1,24 @@
+{
+  "email": "student@campusresolve.example.com",
+  "password": "Student@123"
+}
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzIiwicm9sZSI6IlN0dWRlbnQiLCJleHAiOjE3ODk0NTA4MjZ9.9nUmB61eWo9V2vxCUQUe70secBSmU6vKU9a4OS8qbj4
+{
+  "email": "admin@campusresolve.example.com",
+  "password": "Admin@123"
+}
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFkbWluIiwiZXhwIjoxNzg5NDUwOTQzfQ.bOWnbhXhuNz79_-dKhBbzpJc7drOr2zzPlY12nHz9HU
+
+{
+  "email": "maintenance.staff@campusresolve.example.com",
+  "password": "Prem@2702"
+}
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwicm9sZSI6IlN0YWZmIiwiZXhwIjoxNzg5NDUwOTgyfQ.RIzkWLUokq2KbSyk-oc0RWOUKPQd7cqbQP-UYbDsl7U
+
+Set-Location C:\Users\T9964\Documents\GitHub\CampusResolve-AI
+.\.venv\Scripts\Activate.ps1
+uvicorn apps.api.main:app --reload
+
+Set-Location C:\Users\T9964\Documents\GitHub\CampusResolve-AI
+.\.venv\Scripts\Activate.ps1
+streamlit run apps\dashboard\streamlit_app.py

@@ -1,0 +1,229 @@
+CampusResolve-AI is a working multilingual, AI-assisted campus complaint-management platform. For the demo, present it as a complete workflow: a user submits an issue, the system analyzes it, staff manage it securely, and all important actions are stored for tracking and audit.
+
+One-minute project introduction
+Say this at the beginning:
+
+“CampusResolve-AI is an intelligent campus grievance-management system designed to improve how campus complaints are submitted, analyzed, assigned, and tracked. It supports English, Tamil, and Tamil-English complaint inputs. The system uses AI-assisted analysis to recommend complaint category, responsible department, priority, resolution-time estimate, and possible duplicate complaints. Students can submit and track their issues, while Staff and Admin users manage operational workflows through role-based access. The system is human-in-the-loop: AI provides recommendations, but authorized staff make the final decisions.”
+
+The current project scope combines multilingual complaint intelligence, duplicate detection, priority forecasting, resolution-time prediction, secure role-based workflow, and staff operations support.
+
+Demo flow
+Follow this sequence. It is simple, logical, and shows the strongest features first.
+
+1. Start with the architecture
+Show the architecture diagram briefly.
+
+Say:
+
+“The system has three user roles—Student, Staff, and Admin. The Streamlit dashboard is the user interface. FastAPI provides the backend APIs. JWT authentication and role-based access secure the system. The AI intelligence layer provides recommendations, and SQLite stores complaints, users, workflow records, verifications, and audit logs.”
+
+Do not spend more than 30–40 seconds here.
+
+2. Show API health and documentation
+With the backend running, open:
+
+text
+http://127.0.0.1:8000/docs
+Say:
+
+“The backend is built using FastAPI. Swagger documentation shows that the platform exposes structured APIs for authentication, complaint submission, tracking, staff operations, verification, and administration.”
+
+This demonstrates that it is a full-stack system, not only a Streamlit prototype.
+
+3. Show login and roles
+Open the Streamlit dashboard while logged out.
+
+Demonstrate:
+
+Login form is visible.
+
+Staff workspace is hidden before authentication.
+
+Complaint submission is disabled or asks the user to sign in.
+
+Complaint tracker prompts for login, once its auth guard is completed.
+
+Say:
+
+“Authentication is required because each complaint is linked to the user who created it. This protects tracking information and prevents unauthorized access to staff operations.”
+
+Then sign in as a Student.
+
+Show:
+
+Student-specific view.
+
+Complaint-submission page.
+
+Staff workspace is not visible.
+
+Say:
+
+“A Student can submit and track their own complaint, but cannot access operational staff workflows.”
+
+Then, if time permits, log in as Staff.
+
+Show:
+
+Staff workspace appears.
+
+Staff dashboard/queue becomes available.
+
+Say:
+
+“The navigation is role-aware. Staff can access complaints relevant to their operational work, while Admin users receive additional oversight and management permissions.”
+
+Student complaint demo
+Use one believable complaint. Keep it short but include operational detail.
+
+Example complaint
+text
+Title:
+No water supply in Hostel Block A
+
+Description:
+There has been no water supply in Hostel Block A since this morning.
+Students are unable to use washrooms and drinking-water facilities.
+
+Location:
+Hostel Block A
+
+Affected population:
+120
+
+Safety concern:
+Yes
+Say:
+
+“The student provides both text and structured context. The affected population and safety indication help the system and staff understand operational impact, not only the text content.”
+
+After submitting, show the complaint reference and AI-generated recommendation, if your UI displays it.
+
+Explain the AI output:
+
+Output	What to say
+Category	“The system identifies the issue type, for example water supply or maintenance.”
+Department	“It recommends the responsible department, reducing manual triage effort.”
+Priority	“It estimates urgency using complaint information and operational context.”
+Resolution estimate	“It provides an estimated resolution duration to support expectation management.”
+Duplicate candidates	“It checks whether similar complaints already exist, helping staff avoid handling the same incident repeatedly.”
+Do not say every prediction is automatically enforced. Say:
+
+“These are AI-supported recommendations. Staff retain the authority to confirm or override them.”
+
+Duplicate detection demo
+If you have a previous water-supply complaint, submit or show a similar one such as:
+
+text
+Water has stopped in Hostel A. Students cannot use the washrooms.
+Then explain:
+
+“Even though the wording differs, both complaints describe a water outage in the same campus area. Semantic similarity helps identify them as potential duplicates. Staff can use this to link or manage related reports more efficiently.”
+
+Avoid claiming that every similar complaint is automatically merged. The system identifies candidates for staff review.
+
+Staff workflow demo
+Log in as a Staff user and open the Staff workspace.
+
+Show as available:
+
+Complaint queue.
+
+Complaint details.
+
+Current status.
+
+Assignment or ownership.
+
+Department.
+
+Priority.
+
+Complaint history/timeline.
+
+Duplicate information.
+
+Status update, assignment, or escalation actions.
+
+Say:
+
+“The Staff workspace centralizes operational decisions. Staff can review the complaint details and AI recommendations, update its status, assign responsibility, escalate important issues, and track the history of actions.”
+
+Your intended workflow is central triage, with ordinary staff access restricted to their own department or work scope.
+
+Impact verification demo
+This is one of your strongest implemented backend features.
+
+Show a complaint containing a reported affected population. Then show the Staff/Admin verification workflow or API result.
+
+Say:
+
+“Students report the affected population, but that number may need operational validation. The system allows authorized Staff or Admin users to verify, adjust, or reject the impact assessment. This supports more reliable priority decisions.”
+
+Explain the integrity rule:
+
+“Each complaint allows only one finalized impact verification. A second verification attempt is blocked, which prevents conflicting records. The decision is stored in the database and recorded in the audit trail.”
+
+If displaying Swagger, demonstrate or mention:
+
+text
+PATCH /complaints/{complaint_reference}/impact-verification
+Key evidence you can state:
+
+text
+First verification succeeds.
+Duplicate verification is rejected with HTTP 400.
+One persisted verification record is enforced.
+Audit logging records the action.
+Security and audit demo
+Explain this briefly, even if you do not show every screen.
+
+“The platform uses JWT authentication and role-based authorization. A Student cannot access Staff-only verification operations, and Staff cannot access Admin-only functions. Complaint ownership and audit logs provide traceability for sensitive workflow decisions.”
+
+Show only one protected action if time is short—such as Staff workspace visibility after login. That is enough to demonstrate the concept.
+
+Testing evidence
+End the technical portion by showing the terminal result:
+
+text
+88 passed
+Say:
+
+“The backend and workflow features were validated through automated regression testing. The test suite currently passes 88 tests, including authentication, authorization, complaint workflows, validation rules, verification integrity, and audit behavior.”
+
+The implemented project includes a FastAPI backend, Streamlit dashboard, SQLite persistence, role-aware staff workflow, and automated tests; the project roadmap also includes making newly captured data useful for later handling and model improvement.
+
+Suggested 7-minute demo timing
+Segment	Duration
+Project introduction and architecture	1 min
+API documentation and login	1 min
+Student complaint submission	1.5 min
+AI recommendations and duplicate candidates	1 min
+Staff workspace and workflow	1.5 min
+Impact verification and auditability	45 sec
+Testing result and closing	15 sec
+Strong closing statement
+End with this:
+
+“CampusResolve-AI transforms complaint management from a manual reporting process into a multilingual, AI-assisted, secure, and auditable operational workflow. The current system provides working complaint intelligence and staff verification. The next research extension is multilingual, human-verified incident intelligence, where related complaints can be grouped into incident candidates using semantic similarity, location, category, and time context.”
+
+Important demo precautions
+Start FastAPI first:
+
+powershell
+uvicorn apps.api.main:app --reload
+In another terminal, start Streamlit:
+
+powershell
+streamlit run apps\dashboard\streamlit_app.py
+Keep Swagger ready at /docs.
+
+Use prepared demo accounts only.
+
+Use predictable sample complaints prepared in advance.
+
+Do not show passwords, access tokens, .env contents, absolute local paths, or database secrets.
+
+If a live ML prediction is slow, explain the output using a pre-submitted complaint already in the database rather than waiting during the demo.
+
+Keep a screenshot of the successful test run as a fallback in case a live environment issue occurs.
