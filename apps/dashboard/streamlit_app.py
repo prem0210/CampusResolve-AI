@@ -405,22 +405,182 @@ def inject_css() -> None:
     )
 
 
-def api_get(path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-    response = requests.get(f"{API_BASE_URL}{path}", params=params, timeout=30)
+def get_auth_headers() -> dict[str, str]:
+    token = str(st.session_state.get("access_token") or "").strip()
+
+    if not token:
+        return {}
+
+    return {"Authorization": f"Bearer {token}"}
+
+
+def api_get(
+    path: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    response = requests.get(
+        f"{API_BASE_URL}{path}",
+        params=params,
+        headers=get_auth_headers(),
+        timeout=30,
+    )
     response.raise_for_status()
     return response.json()
 
 
 def api_post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = requests.post(f"{API_BASE_URL}{path}", json=payload, timeout=90)
+    response = requests.post(
+        f"{API_BASE_URL}{path}",
+        json=payload,
+        headers=get_auth_headers(),
+        timeout=90,
+    )
     response.raise_for_status()
     return response.json()
 
 
 def api_patch(path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = requests.patch(f"{API_BASE_URL}{path}", json=payload, timeout=30)
+    response = requests.patch(
+        f"{API_BASE_URL}{path}",
+        json=payload,
+        headers=get_auth_headers(),
+        timeout=30,
+    )
     response.raise_for_status()
     return response.json()
+
+
+def is_authenticated() -> bool:
+    token = str(st.session_state.get("access_token") or "").strip()
+    current_user = st.session_state.get("current_user")
+
+    return bool(token and isinstance(current_user, dict))
+
+
+def get_current_user_role() -> str:
+    current_user = st.session_state.get("current_user")
+
+    if not isinstance(current_user, dict):
+        return ""
+
+    return str(current_user.get("role") or "").strip()
+
+
+def is_staff_or_admin() -> bool:
+    return get_current_user_role() in {"Staff", "Admin"}
+
+
+def login_user(email: str, password: str) -> tuple[bool, str]:
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/auth/login",
+            json={
+                "email": email.strip(),
+                "password": password,
+            },
+            timeout=30,
+        )
+    except requests.RequestException:
+        return False, "Could not reach the authentication service. Please try again."
+
+    if response.status_code == 401:
+        return False, "Invalid email or password."
+
+    if response.status_code == 422:
+        return False, "Enter a valid email address and a password of at least 8 characters."
+
+    try:
+        response.raise_for_status()
+        token_data = response.json()
+    except requests.RequestException:
+        return False, "Sign-in could not be completed. Please try again."
+
+    access_token = str(token_data.get("access_token") or "").strip()
+
+    if not access_token:
+        return False, "Sign-in failed because the server did not return an access token."
+
+    previous_token = st.session_state.get("access_token")
+    previous_user = st.session_state.get("current_user")
+
+    st.session_state["access_token"] = access_token
+
+    try:
+        current_user = api_get("/auth/me")
+    except requests.RequestException:
+        st.session_state["access_token"] = previous_token
+        st.session_state["current_user"] = previous_user
+        return False, "Sign-in could not be verified. Please try again."
+
+    st.session_state["current_user"] = current_user
+    st.session_state["auth_error"] = None
+
+    return True, ""
+
+
+def logout_user() -> None:
+    st.session_state["access_token"] = None
+    st.session_state["current_user"] = None
+    st.session_state["auth_error"] = None
+    st.session_state["active_page"] = "Report an issue"
+
+
+def render_auth_panel() -> None:
+    if is_authenticated():
+        current_user = st.session_state["current_user"]
+        full_name = str(current_user.get("full_name") or "Authenticated user")
+        email = str(current_user.get("email") or "")
+        role = get_current_user_role() or "User"
+
+        st.success(f"Signed in as {full_name}")
+        st.caption(f"{email} ? {role}")
+
+        if st.button("Log out", use_container_width=True, key="logout_button"):
+            logout_user()
+            st.rerun()
+
+        return
+
+    st.markdown("### Staff and Admin sign in")
+    st.caption(
+        "Sign in to access protected complaint operations. "
+        "Students can still submit and track complaints without signing in."
+    )
+
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input(
+            "Email",
+            key="login_email",
+            placeholder="name@campusresolve.example.com",
+        )
+        password = st.text_input(
+            "Password",
+            type="password",
+            key="login_password",
+        )
+        submitted = st.form_submit_button(
+            "Sign in",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if not submitted:
+        return
+
+    if not email.strip() or not password:
+        st.error("Enter both your email address and password.")
+        return
+
+    with st.spinner("Signing in..."):
+        success, message = login_user(email, password)
+
+    if not success:
+        st.session_state["auth_error"] = message
+        st.error(message)
+        return
+
+    st.session_state["auth_error"] = None
+    st.rerun()
 
 
 def get_api_health() -> tuple[bool, str]:
@@ -507,6 +667,12 @@ def show_student_portal(api_ready: bool) -> None:
     if not api_ready:
         st.error("The complaint service is unavailable. Please start the FastAPI backend and try again.")
 
+    if not is_authenticated():
+        st.info(
+            "Please sign in to submit a complaint. "
+            "Signing in links the complaint to your account for secure tracking."
+        )
+
     with st.container(border=True):
         st.markdown("### Tell us what happened")
         st.caption("Share enough detail for the system to recommend the correct department and urgency level.")
@@ -552,7 +718,7 @@ def show_student_portal(api_ready: bool) -> None:
                 "Submit complaint and get AI recommendation",
                 type="primary",
                 use_container_width=True,
-                disabled=not api_ready,
+                disabled=not api_ready or not is_authenticated(),
             )
 
     if submitted:
@@ -709,6 +875,13 @@ def make_light_chart(fig: Any) -> Any:
 
 
 def show_staff_dashboard(api_ready: bool) -> None:
+    if not is_staff_or_admin():
+        st.error(
+            "Please sign in with a Staff or Admin account "
+            "to access the operations workspace."
+        )
+        return
+
     render_page_heading(
         "Staff operations workspace",
         "Complaint queue and operational insights",
@@ -945,10 +1118,292 @@ def show_staff_dashboard(api_ready: bool) -> None:
                 with st.expander("Technical details"):
                     st.code(str(error))
 
+    st.markdown("### Impact verification")
+
+    try:
+        timeline_data = api_get(
+            f"/complaints/{selected_reference}/timeline"
+        )
+        impact = timeline_data.get("impact")
+    except requests.RequestException as error:
+        timeline_data = None
+        impact = None
+        st.warning(
+            "Impact-verification details could not be loaded. "
+            "You can refresh the queue and try again."
+        )
+        with st.expander("Technical details"):
+            st.code(str(error))
+
+    reported_population = int(selected.get("affected_population") or 0)
+
+    with st.container(border=True):
+        st.markdown("#### Verify reported impact")
+        st.write(f"**Reported affected population:** {reported_population}")
+
+        if impact and impact.get("impact_verification_status") != "Unverified":
+            verification_status = impact.get(
+                "impact_verification_status",
+                "Not available",
+            )
+            verified_population = impact.get(
+                "verified_affected_population"
+            )
+            verification_note = impact.get("impact_verification_note")
+            verified_at = impact.get("verified_at")
+
+            st.success(
+                f"Impact verification completed: {verification_status}"
+            )
+            st.write(
+                "**Verified affected population:** "
+                f"{verified_population if verified_population is not None else 'Not applicable'}"
+            )
+            st.write(
+                "**Verification note:** "
+                f"{verification_note or 'No note provided'}"
+            )
+            st.write(
+                f"**Verified at:** {format_datetime(verified_at)}"
+            )
+            st.caption(
+                "Impact verification is final and cannot be changed."
+            )
+        else:
+            st.info(
+                "Verify the reported impact after reviewing the complaint."
+            )
+
+            with st.form(
+                f"impact_verification_form_{selected_reference}"
+            ):
+                verification_status = st.selectbox(
+                    "Verification decision",
+                    options=["Verified", "Adjusted", "Rejected"],
+                    help=(
+                        "Verified accepts the reported population. "
+                        "Adjusted records a corrected population. "
+                        "Rejected records no verified population."
+                    ),
+                )
+
+                verified_population = st.number_input(
+                    "Verified affected population",
+                    min_value=0,
+                    max_value=100000,
+                    value=reported_population,
+                    step=1,
+                    disabled=verification_status == "Rejected",
+                    help=(
+                        "Enter the corrected population for Adjusted. "
+                        "For Verified, the reported population is used. "
+                        "For Rejected, no population is stored."
+                    ),
+                )
+
+                verification_note = st.text_area(
+                    "Verification note",
+                    max_chars=1000,
+                    placeholder=(
+                        "Example: Confirmed during hostel inspection "
+                        "at 10:30 AM."
+                    ),
+                    height=100,
+                )
+
+                verification_confirmed = st.checkbox(
+                    "I confirm this impact assessment is accurate.",
+                    key=(
+                        f"impact_verification_confirmed_"
+                        f"{selected_reference}"
+                    ),
+                )
+
+                verification_submitted = st.form_submit_button(
+                    "Confirm impact verification",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+            if verification_submitted:
+                if not verification_confirmed:
+                    st.warning(
+                        "Confirm the impact assessment before saving."
+                    )
+                elif (
+                    verification_status == "Adjusted"
+                    and verified_population is None
+                ):
+                    st.warning(
+                        "Enter the corrected affected population."
+                    )
+                else:
+                    verification_payload: dict[str, Any] = {
+                        "impact_verification_status": verification_status,
+                        "impact_verification_note": (
+                            verification_note.strip() or None
+                        ),
+                    }
+
+                    if verification_status == "Adjusted":
+                        verification_payload[
+                            "verified_affected_population"
+                        ] = int(verified_population)
+                    elif verification_status == "Rejected":
+                        verification_payload[
+                            "verified_affected_population"
+                        ] = None
+
+                    try:
+                        with st.spinner(
+                            "Saving impact verification..."
+                        ):
+                            api_patch(
+                                f"/complaints/{selected_reference}"
+                                "/impact-verification",
+                                verification_payload,
+                            )
+                        st.success(
+                            "Impact verification saved successfully."
+                        )
+                        st.rerun()
+                    except requests.HTTPError as error:
+                        status_code = error.response.status_code
+
+                        if status_code == 400:
+                            st.warning(
+                                "This complaint has already been verified "
+                                "or the verification details are invalid."
+                            )
+                        elif status_code == 401:
+                            st.error(
+                                "Your session has expired. "
+                                "Please sign in again."
+                            )
+                        elif status_code == 403:
+                            st.error(
+                                "You do not have permission to verify "
+                                "this complaint."
+                            )
+                        elif status_code == 404:
+                            st.error("Complaint not found.")
+                        elif status_code == 422:
+                            st.error(
+                                "Check the verification values and note."
+                            )
+                        else:
+                            st.error(
+                                "The impact verification could not be "
+                                "saved. Please try again."
+                            )
+
+                        with st.expander("Technical details"):
+                            st.code(str(error))
+                    except requests.RequestException as error:
+                        st.error(
+                            "The complaint service could not be reached. "
+                            "Please try again shortly."
+                        )
+                        with st.expander("Technical details"):
+                            st.code(str(error))
+
+    st.markdown("### Operational timeline")
+
+    staff_timeline = timeline_data
+
+    if staff_timeline:
+        assignment = staff_timeline.get("assignment")
+        escalation = staff_timeline.get("escalation")
+        status_history = staff_timeline.get("status_history", [])
+
+        timeline_col1, timeline_col2 = st.columns(2, gap="large")
+
+        with timeline_col1:
+            with st.container(border=True):
+                st.markdown("#### Assignment")
+
+                if assignment:
+                    st.write(
+                        f"**Assigned user ID:** "
+                        f"{assignment.get('assigned_to_user_id', 'Not available')}"
+                    )
+                    st.write(
+                        f"**Assigned department ID:** "
+                        f"{assignment.get('assigned_department_id', 'Not assigned')}"
+                    )
+                    st.write(
+                        f"**Assigned at:** "
+                        f"{format_datetime(assignment.get('assigned_at'))}"
+                    )
+                    st.write(
+                        f"**Assignment note:** "
+                        f"{assignment.get('assignment_note') or 'No note provided'}"
+                    )
+                else:
+                    st.caption("This complaint has not been assigned yet.")
+
+        with timeline_col2:
+            with st.container(border=True):
+                st.markdown("#### Escalation")
+
+                if escalation:
+                    escalation_state = escalation.get(
+                        "escalation_state",
+                        "Not available",
+                    )
+                    overdue_label = (
+                        "Yes"
+                        if escalation.get("is_overdue")
+                        else "No"
+                    )
+
+                    st.write(
+                        f"**Escalation state:** {escalation_state}"
+                    )
+                    st.write(
+                        f"**Due at:** "
+                        f"{format_datetime(escalation.get('due_at'))}"
+                    )
+                    st.write(f"**Overdue:** {overdue_label}")
+                    st.write(
+                        f"**Reason:** "
+                        f"{escalation.get('escalation_reason') or 'No reason provided'}"
+                    )
+                else:
+                    st.caption("No escalation has been recorded.")
+
+        with st.container(border=True):
+            st.markdown("#### Status history")
+
+            if not status_history:
+                st.caption("No status changes have been recorded yet.")
+            else:
+                for event in reversed(status_history):
+                    old_status = event.get("old_status") or "Created"
+                    new_status = event.get("new_status", "Not available")
+                    changed_at = format_datetime(
+                        event.get("changed_at")
+                    )
+                    note = event.get("note") or "No note provided"
+
+                    st.markdown(
+                        f"**{old_status} → {new_status}**  \n"
+                        f"{changed_at}  \n"
+                        f"{note}"
+                    )
+                    st.divider()
 
 def show_complaint_tracker(api_ready: bool) -> None:
     if st.session_state.get("pending_track_reference"):
-        st.session_state["track_reference"] = st.session_state.pop("pending_track_reference")
+        st.session_state["track_reference"] = st.session_state.pop(
+            "pending_track_reference"
+        )
+
+    if not is_authenticated():
+        st.info(
+            "Please sign in to view complaint status and timeline information."
+        )
+        return
 
     render_page_heading(
         "Complaint tracking",
@@ -1143,6 +1598,9 @@ def initialise_session_state() -> None:
         "tracked_complaint": None,
         "pending_track_reference": None,
         "requested_page": None,
+        "access_token": None,
+        "current_user": None,
+        "auth_error": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -1198,10 +1656,26 @@ def main() -> None:
         st.caption(f"API status: {api_status}")
 
         st.divider()
+        render_auth_panel()
+
+        st.divider()
         st.markdown("### Navigation")
+
+        available_pages = {
+            "Report an issue": "report",
+            "Track complaint": "track",
+            "About": "about",
+        }
+
+        if is_staff_or_admin():
+            available_pages["Staff workspace"] = "staff"
+
+        if st.session_state["active_page"] not in available_pages:
+            st.session_state["active_page"] = "Report an issue"
+
         page = st.radio(
             "Navigation",
-            options=list(PAGES.keys()),
+            options=list(available_pages.keys()),
             key="active_page",
             label_visibility="collapsed",
         )
@@ -1232,11 +1706,13 @@ def main() -> None:
         st.divider()
         st.caption("Academic research prototype · Staff review is required.")
 
-    if PAGES[page] == "report":
+    page_key = available_pages[page]
+
+    if page_key == "report":
         show_student_portal(api_ready)
-    elif PAGES[page] == "track":
+    elif page_key == "track":
         show_complaint_tracker(api_ready)
-    elif PAGES[page] == "staff":
+    elif page_key == "staff":
         show_staff_dashboard(api_ready)
     else:
         show_about_page()
